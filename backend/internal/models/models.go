@@ -35,14 +35,21 @@ type ExerciseLog struct {
 
 // Payload для всей тренировки (WorkoutLog.Payload)
 type WorkoutSessionPayload struct {
-	Exercises []ExerciseLog `json:"exercises"`
-	Duration  int           `json:"actual_duration_mins"`
-	Mood      string        `json:"mood"` // например: "энергично", "устал"
+	Exercises          []ExerciseLog `json:"exercises"`
+	ActualDurationMins int           `json:"actual_duration_mins"`
+	Mood               string        `json:"mood"` // например: "энергично", "устал"
 }
 
 type MuscleData struct {
 	Primary   []string `json:"primary"`
 	Secondary []string `json:"secondary"`
+}
+
+type ExerciseInWorkout struct {
+	Name   string `json:"name"`
+	Sets   int    `json:"sets"`
+	Reps   int    `json:"reps"`
+	Advice string `json:"advice"`
 }
 
 // User represents the users table.
@@ -117,14 +124,17 @@ type WorkoutLog struct {
 	CreatedAt time.Time                    `json:"created_at" db:"created_at"`
 }
 
-// AIRequest stores requests sent to the AI subsystem.
+// AIGeneratedWorkout stores requests sent to the AI subsystem.
 type AIGeneratedWorkout struct {
-	PlanTitle   string `json:"plan_title"`
-	Description string `json:"description"`
-	Exercises   []struct {
-		Name   string `json:"name"`
-		Sets   int    `json:"sets"`
-		Reps   int    `json:"reps"`
-		Advice string `json:"advice"` // Совет от ИИ конкретно к этому упражнению
-	} `json:"exercises"`
+	PlanTitle   string                     `json:"plan_title"`
+	Description string                     `json:"description"`
+	Exercises   JSONB[[]ExerciseInWorkout] `json:"exercises"` // jsonb array of exercises with sets/reps/advice
+}
+
+type AIRequest struct {
+	ID        uuid.UUID             `json:"id" db:"id"`
+	UserID    uuid.UUID             `json:"user_id" db:"user_id"`
+	Prompt    string                `json:"prompt" db:"prompt"`
+	Response  JSONB[map[string]any] `json:"response" db:"response"`
+	CreatedAt time.Time             `json:"created_at" db:"created_at"`
 }
