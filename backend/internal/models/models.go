@@ -6,38 +6,35 @@ import (
 	"github.com/google/uuid"
 )
 
-// Для User.CachedStats
+// Вспомогательные структуры для JSONB полей
+
 type UserStats struct {
-	LastActivity   time.Time `json:"last_activity"`
-	CompletedTotal int       `json:"completed_total"`
-	// Личные рекорды: "название_упражнения" -> вес
-	// Например: {"bench_press": 100.0, "deadlift": 150.0}
-	PersonalBests map[string]float64 `json:"personal_bests"`
-	CurrentStreak int                `json:"current_streak"` // Дней подряд
-	AIPrefs       map[string]string  `json:"ai_prefs"`
+	LastActivity   time.Time          `json:"last_activity"`
+	CompletedTotal int                `json:"completed_total"`
+	PersonalBests  map[string]float64 `json:"personal_bests"`
+	CurrentStreak  int                `json:"current_streak"`
+	AIPrefs        map[string]string  `json:"ai_prefs"`
 }
 
-// Для WorkoutExercise.LoadParams
 type ExerciseParams struct {
 	Weight      float64 `json:"weight"`
-	Intensity   int     `json:"intensity"` // % от максимума
+	Intensity   int     `json:"intensity"`
 	RestSeconds int     `json:"rest_seconds"`
-	Tempo       string  `json:"tempo"`      // например, "3010" (фазы движения)
-	TargetRPE   int     `json:"target_rpe"` // Желаемая интенсивность по 10-балльной шкале
+	Tempo       string  `json:"tempo"`
+	TargetRPE   int     `json:"target_rpe"`
 }
 
 type ExerciseLog struct {
 	ExerciseID   uuid.UUID `json:"exercise_id"`
-	ActualReps   []int     `json:"actual_reps"`   // [10, 10, 8] - по подходам
-	ActualWeight []float64 `json:"actual_weight"` // [60, 60, 55]
+	ActualReps   []int     `json:"actual_reps"`
+	ActualWeight []float64 `json:"actual_weight"`
 	Notes        string    `json:"notes"`
 }
 
-// Payload для всей тренировки (WorkoutLog.Payload)
 type WorkoutSessionPayload struct {
 	Exercises          []ExerciseLog `json:"exercises"`
 	ActualDurationMins int           `json:"actual_duration_mins"`
-	Mood               string        `json:"mood"` // например: "энергично", "устал"
+	Mood               string        `json:"mood"`
 }
 
 type MuscleData struct {
@@ -52,89 +49,84 @@ type ExerciseInWorkout struct {
 	Advice string `json:"advice"`
 }
 
-// User represents the users table.
+// Основные модели для GORM
+
 type User struct {
-	ID            uuid.UUID        `json:"id" db:"id"`
-	Username      string           `json:"username" db:"username"`
-	Email         string           `json:"email" db:"email"`
-	PasswordHash  string           `json:"password_hash" db:"password_hash"`
-	CurrentWeight float64          `json:"current_weight" db:"current_weight"`
-	Height        float64          `json:"height" db:"height"`
-	Goal          string           `json:"goal" db:"goal"`
-	CachedStats   JSONB[UserStats] `json:"cached_stats" db:"cached_stats"` // jsonb
+	ID            uuid.UUID        `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	Username      string           `gorm:"uniqueIndex;not null" json:"username"`
+	Email         string           `gorm:"uniqueIndex;not null" json:"email"`
+	PasswordHash  string           `gorm:"not null" json:"-"` // Пароль никогда не отдаем в JSON
+	CurrentWeight float64          `json:"current_weight"`
+	Height        float64          `json:"height"`
+	Goal          string           `json:"goal"`
+	CachedStats   JSONB[UserStats] `gorm:"type:jsonb" json:"cached_stats"`
+	CreatedAt     time.Time        `json:"created_at"`
+	UpdatedAt     time.Time        `json:"updated_at"`
 }
 
-// Exercise represents the exercises table.
 type Exercise struct {
-	ID           uuid.UUID         `json:"id" db:"id"`
-	AuthorID     *uuid.UUID        `json:"author_id,omitempty" db:"author_id"` // nullable: NULL for system
-	Name         string            `json:"name" db:"name"`
-	Status       string            `json:"status" db:"status"`               // "system" | "custom"
-	MuscleGroups JSONB[MuscleData] `json:"muscle_groups" db:"muscle_groups"` // jsonb array like ["Legs","Back"]
-	Description  string            `json:"description" db:"description"`
-	VideoURL     string            `json:"video_url" db:"video_url"`
+	ID           uuid.UUID         `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	AuthorID     *uuid.UUID        `gorm:"type:uuid" json:"author_id"` // NULL для системных
+	Name         string            `gorm:"not null" json:"name"`
+	Status       string            `gorm:"default:'system'" json:"status"`
+	MuscleGroups JSONB[MuscleData] `gorm:"type:jsonb" json:"muscle_groups"`
+	Description  string            `json:"description"`
+	VideoURL     string            `json:"video_url"`
 }
 
-// Workout represents the workouts table.
 type Workout struct {
-	ID               uuid.UUID `json:"id" db:"id"`
-	AuthorID         uuid.UUID `json:"author_id" db:"author_id"`
-	Title            string    `json:"title" db:"title"`
-	IsAIGenerated    bool      `json:"is_ai_generated" db:"is_ai_generated"`
-	TotalDurationEst int       `json:"total_duration_est" db:"total_duration_est"`
-	IsPublic         bool      `json:"is_public" db:"is_public"`
+	ID               uuid.UUID         `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	AuthorID         uuid.UUID         `gorm:"type:uuid;not null" json:"author_id"`
+	Title            string            `gorm:"not null" json:"title"`
+	IsAIGenerated    bool              `gorm:"default:false" json:"is_ai_generated"`
+	TotalDurationEst int               `json:"total_duration_est"`
+	IsPublic         bool              `gorm:"default:false" json:"is_public"`
+	Exercises        []WorkoutExercise `gorm:"foreignKey:WorkoutID" json:"exercises"` // Связь один-ко-многим
 }
 
-// WorkoutExercise links exercises to workouts with parameters.
+// WorkoutExercise — промежуточная таблица с доп. параметрами нагрузки
 type WorkoutExercise struct {
-	ID         uuid.UUID             `json:"id" db:"id"`
-	WorkoutID  uuid.UUID             `json:"workout_id" db:"workout_id"`
-	ExerciseID uuid.UUID             `json:"exercise_id" db:"exercise_id"`
-	Sets       int                   `json:"sets" db:"sets"`
-	Reps       int                   `json:"reps" db:"reps"`
-	LoadParams JSONB[ExerciseParams] `json:"load_params" db:"load_params"` // jsonb
-	OrderIndex int                   `json:"order_index" db:"order_index"`
+	ID         uuid.UUID             `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	WorkoutID  uuid.UUID             `gorm:"type:uuid;index" json:"workout_id"`
+	ExerciseID uuid.UUID             `gorm:"type:uuid" json:"exercise_id"`
+	Exercise   Exercise              `gorm:"foreignKey:ExerciseID" json:"exercise_info"` // Чтобы подтягивать детали упражнения
+	Sets       int                   `json:"sets"`
+	Reps       int                   `json:"reps"`
+	LoadParams JSONB[ExerciseParams] `gorm:"type:jsonb" json:"load_params"`
+	OrderIndex int                   `json:"order_index"`
 }
 
-// TrainingPlan represents training plans.
 type TrainingPlan struct {
-	ID            uuid.UUID `json:"id" db:"id"`
-	AuthorID      uuid.UUID `json:"author_id" db:"author_id"`
-	Title         string    `json:"title" db:"title"`
-	Description   string    `json:"description" db:"description"`
-	IsPublic      bool      `json:"is_public" db:"is_public"`
-	DurationWeeks int       `json:"duration_weeks" db:"duration_weeks"`
+	ID            uuid.UUID     `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	AuthorID      uuid.UUID     `gorm:"type:uuid;not null" json:"author_id"`
+	Title         string        `gorm:"not null" json:"title"`
+	Description   string        `json:"description"`
+	IsPublic      bool          `gorm:"default:false" json:"is_public"`
+	DurationWeeks int           `json:"duration_weeks"`
+	Workouts      []PlanWorkout `gorm:"foreignKey:PlanID" json:"workouts"`
 }
 
-// PlanWorkout links plans to workouts on specific days.
 type PlanWorkout struct {
-	ID         uuid.UUID `json:"id" db:"id"`
-	PlanID     uuid.UUID `json:"plan_id" db:"plan_id"`
-	WorkoutID  uuid.UUID `json:"workout_id" db:"workout_id"`
-	DayOfWeek  int       `json:"day_of_week" db:"day_of_week"` // 1-7
-	OrderIndex int       `json:"order_index" db:"order_index"`
+	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	PlanID     uuid.UUID `gorm:"type:uuid;index" json:"plan_id"`
+	WorkoutID  uuid.UUID `gorm:"type:uuid" json:"workout_id"`
+	Workout    Workout   `gorm:"foreignKey:WorkoutID" json:"workout_info"`
+	DayOfWeek  int       `json:"day_of_week"`
+	OrderIndex int       `json:"order_index"`
 }
 
-// WorkoutLog stores completed workout instances.
 type WorkoutLog struct {
-	ID        uuid.UUID                    `json:"id" db:"id"`
-	UserID    uuid.UUID                    `json:"user_id" db:"user_id"`
-	WorkoutID uuid.UUID                    `json:"workout_id" db:"workout_id"`
-	Payload   JSONB[WorkoutSessionPayload] `json:"payload" db:"payload"` // jsonb
-	CreatedAt time.Time                    `json:"created_at" db:"created_at"`
-}
-
-// AIGeneratedWorkout stores requests sent to the AI subsystem.
-type AIGeneratedWorkout struct {
-	PlanTitle   string                     `json:"plan_title"`
-	Description string                     `json:"description"`
-	Exercises   JSONB[[]ExerciseInWorkout] `json:"exercises"` // jsonb array of exercises with sets/reps/advice
+	ID        uuid.UUID                    `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	UserID    uuid.UUID                    `gorm:"type:uuid;index" json:"user_id"`
+	WorkoutID uuid.UUID                    `gorm:"type:uuid" json:"workout_id"`
+	Payload   JSONB[WorkoutSessionPayload] `gorm:"type:jsonb" json:"payload"`
+	CreatedAt time.Time                    `json:"created_at"`
 }
 
 type AIRequest struct {
-	ID        uuid.UUID             `json:"id" db:"id"`
-	UserID    uuid.UUID             `json:"user_id" db:"user_id"`
-	Prompt    string                `json:"prompt" db:"prompt"`
-	Response  JSONB[map[string]any] `json:"response" db:"response"`
-	CreatedAt time.Time             `json:"created_at" db:"created_at"`
+	ID        uuid.UUID             `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	UserID    uuid.UUID             `gorm:"type:uuid;index" json:"user_id"`
+	Prompt    string                `gorm:"not null" json:"prompt"`
+	Response  JSONB[map[string]any] `gorm:"type:jsonb" json:"response"`
+	CreatedAt time.Time             `json:"created_at"`
 }
