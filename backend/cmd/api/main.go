@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/zefiruz/GigaFit/backend/internal/configs"
 	"github.com/zefiruz/GigaFit/backend/internal/handler"
@@ -17,14 +17,29 @@ import (
 )
 
 func RouteGroup(mux *http.ServeMux, prefix string, middlewares ...func(http.Handler) http.Handler) func(string, http.HandlerFunc) {
-	return func(pattern string, handler http.HandlerFunc) {
-		var finalHandler http.Handler = handler
-		// Накладываем middleware в обратном порядке
-		for i := len(middlewares) - 1; i >= 0; i-- {
-			finalHandler = middlewares[i](finalHandler)
-		}
-		mux.Handle(prefix+pattern, finalHandler)
-	}
+    return func(pattern string, handler http.HandlerFunc) {
+        var finalHandler http.Handler = handler
+        for i := len(middlewares) - 1; i >= 0; i-- {
+            finalHandler = middlewares[i](finalHandler)
+        }
+
+        // Чистим паттерн от лишних пробелов по краям
+        pattern = strings.TrimSpace(pattern)
+        parts := strings.SplitN(pattern, " ", 2)
+        
+        var fullPattern string
+        if len(parts) == 2 {
+            method := parts[0]
+            // Убираем возможные лишние пробелы внутри пути
+            path := strings.TrimSpace(parts[1]) 
+            fullPattern = fmt.Sprintf("%s %s%s", method, prefix, path)
+        } else {
+            fullPattern = prefix + pattern
+        }
+
+        fmt.Printf("Mux Register: [%s]\n", fullPattern) // Для отладки в консоли
+        mux.Handle(fullPattern, finalHandler)
+    }
 }
 
 func main() {
@@ -53,19 +68,26 @@ func main() {
 	}
 
 	userRepo := repository.NewUserRepository(db)
+	exerciseRepo := repository.NewExerciseRepository(db)
 
 	authHandler := handler.NewAuthHandler(userRepo, cfg.JWTSecret)
+	exerciseHandler := handler.NewExerciseHandler(exerciseRepo)
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("POST /api/v1/auth/register", authHandler.Register)
-	mux.HandleFunc("POST /api/v1/auth/login", authHandler.Login)
+	public := RouteGroup(mux, "/api/v1")
 
-	_ = RouteGroup(mux, "/api/v1", middleware.AuthMiddleware(cfg.JWTSecret))
+	public("POST /auth/register", authHandler.Register)
+	public("POST /auth/login", authHandler.Login)
 
-	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, "pong")
-	})
+	exercise := RouteGroup(mux, "/api/v1", middleware.AuthMiddleware(cfg.JWTSecret))
+
+	exercise("GET /exercise/all", exerciseHandler.GetAllExercises)
+	exercise("POST /exercise", exerciseHandler.CreateExercise)
+	exercise("GET /exercise", exerciseHandler.GetExercisesByMuscleGroup)
+	exercise("GET /exercise/{id}", exerciseHandler.GetExerciseByID)
+	exercise("PUT /exercise/{id}", exerciseHandler.UpdateExercise)
+	exercise("DELETE /exercise/{id}", exerciseHandler.DeleteExercise)
 
 	fmt.Println("Работает...")
 

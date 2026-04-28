@@ -39,7 +39,7 @@ type WorkoutSessionPayload struct {
 
 type MuscleData struct {
 	Primary   []string `json:"primary"`
-	Secondary []string `json:"secondary"`
+	Secondary []string `json:"secondary,omitempty"`
 }
 
 type ExerciseInWorkout struct {
@@ -66,7 +66,7 @@ type User struct {
 
 type Exercise struct {
 	ID           uuid.UUID         `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	AuthorID     *uuid.UUID        `gorm:"type:uuid" json:"author_id"` // NULL для системных
+	UserID       *uuid.UUID        `gorm:"type:uuid" json:"user_id"` // NULL для системных
 	Name         string            `gorm:"not null" json:"name"`
 	Status       string            `gorm:"default:'system'" json:"status"`
 	MuscleGroups JSONB[MuscleData] `gorm:"type:jsonb" json:"muscle_groups"`
