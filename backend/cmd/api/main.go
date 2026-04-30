@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/zefiruz/GigaFit/backend/internal/configs"
-	"github.com/zefiruz/GigaFit/backend/internal/handler"
-	"github.com/zefiruz/GigaFit/backend/internal/middleware"
-	"github.com/zefiruz/GigaFit/backend/internal/models"
-	"github.com/zefiruz/GigaFit/backend/internal/repository"
+	"gigafit/internal/configs"
+	"gigafit/internal/handler"
+	"gigafit/internal/middleware"
+	"gigafit/internal/models"
+	"gigafit/internal/repository"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -37,7 +37,7 @@ func RouteGroup(mux *http.ServeMux, prefix string, middlewares ...func(http.Hand
             fullPattern = prefix + pattern
         }
 
-        fmt.Printf("Mux Register: [%s]\n", fullPattern) // Для отладки в консоли
+        // fmt.Printf("Mux Register: [%s]\n", fullPattern) // Для отладки в консоли
         mux.Handle(fullPattern, finalHandler)
     }
 }

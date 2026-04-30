@@ -78,6 +78,7 @@ type Workout struct {
 	ID               uuid.UUID         `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	AuthorID         uuid.UUID         `gorm:"type:uuid;not null" json:"author_id"`
 	Title            string            `gorm:"not null" json:"title"`
+	Description      string            `json:"description"`
 	IsAIGenerated    bool              `gorm:"default:false" json:"is_ai_generated"`
 	TotalDurationEst int               `json:"total_duration_est"`
 	IsPublic         bool              `gorm:"default:false" json:"is_public"`

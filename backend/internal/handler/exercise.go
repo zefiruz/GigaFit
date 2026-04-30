@@ -2,11 +2,14 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
+	"gigafit/internal/middleware"
+	"gigafit/internal/models"
+	"gigafit/internal/repository"
+
 	"github.com/google/uuid"
-	"github.com/zefiruz/GigaFit/backend/internal/models"
-	"github.com/zefiruz/GigaFit/backend/internal/repository"
 )
 
 type ExerciseHandler struct {
@@ -14,33 +17,63 @@ type ExerciseHandler struct {
 }
 
 func NewExerciseHandler(repo repository.ExerciseRepository) *ExerciseHandler {
-	return &ExerciseHandler{
-		Repo: repo,
-	}
+	return &ExerciseHandler{Repo: repo}
 }
 
-func (h *ExerciseHandler) CreateExercise(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		PrimaryMuscles   []string `json:"primary_muscles"`  
-        SecondaryMuscles []string `json:"secondary_muscles"`
-		VideoURL    string `json:"video_url"`
-	}
+// ====== RESPONSE STRUCT ======
 
-	err := json.NewDecoder(r.Body).Decode(&input)
-	if err != nil {
-		http.Error(w, "Некорректный JSON", http.StatusBadRequest)
+type Response struct {
+	Status  string      `json:"status"`
+	Data    interface{} `json:"data,omitempty"`
+	Message string      `json:"message,omitempty"`
+}
+
+// ====== HELPERS ======
+
+func getUserID(r *http.Request) (uuid.UUID, bool) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	return userID, ok
+}
+
+func writeJSON(w http.ResponseWriter, status int, resp Response) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// ====== HANDLERS ======
+
+func (h *ExerciseHandler) CreateExercise(w http.ResponseWriter, r *http.Request) {
+	userID, ok := getUserID(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
 		return
 	}
 
-	exerciseID := uuid.New()
+	var input struct {
+		Name             string   `json:"name"`
+		Description      string   `json:"description"`
+		PrimaryMuscles   []string `json:"primary_muscles"`
+		SecondaryMuscles []string `json:"secondary_muscles"`
+		VideoURL         string   `json:"video_url"`
+	}
 
-	newExercise := models.Exercise{
-		ID:           exerciseID,
-		Name:         input.Name,
-		Status:       "custom", 
-		Description:  input.Description,
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Message: "Invalid JSON"})
+		return
+	}
+
+	if input.Name == "" {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Message: "Name is required"})
+		return
+	}
+
+	exercise := models.Exercise{
+		ID:          uuid.New(),
+		UserID:      &userID,
+		Name:        input.Name,
+		Status:      "custom",
+		Description: input.Description,
 		MuscleGroups: models.JSONB[models.MuscleData]{
 			Data: models.MuscleData{
 				Primary:   input.PrimaryMuscles,
@@ -50,155 +83,163 @@ func (h *ExerciseHandler) CreateExercise(w http.ResponseWriter, r *http.Request)
 		VideoURL: input.VideoURL,
 	}
 
-	err = h.Repo.CreateExercise(&newExercise)
-	if err != nil {
-		http.Error(w, "Ошибка при сохранении упражнения", http.StatusInternalServerError)
+	if err := h.Repo.CreateExercise(&exercise); err != nil {
+		log.Println("CreateExercise error:", err)
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to create exercise"})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(map[string]string{
-		"status":      "success",
-		"message":     "Упражнение успешно создано",
-		"exercise_id": exerciseID.String(),
-	}); err != nil {
-		http.Error(w, "Ошибка при кодировании ответа", http.StatusInternalServerError)
-	}
+	writeJSON(w, http.StatusCreated, Response{
+		Status: "success",
+		Data:   exercise,
+	})
 }
 
 func (h *ExerciseHandler) GetExerciseByID(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "Некорректный UUID формат", http.StatusBadRequest)
+	userID, ok := getUserID(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
 		return
 	}
 
-	exercise, err := h.Repo.GetExerciseByID(id)
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
-		http.Error(w, "Упражнение не найдено", http.StatusNotFound)
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Message: "Invalid UUID"})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(exercise)
+	exercise, err := h.Repo.GetExerciseByID(id, userID)
 	if err != nil {
-		http.Error(w, "Ошибка при кодировании ответа", http.StatusInternalServerError)
+		writeJSON(w, http.StatusNotFound, Response{Status: "error", Message: "Exercise not found"})
+		return
 	}
+
+	writeJSON(w, http.StatusOK, Response{
+		Status: "success",
+		Data:   exercise,
+	})
 }
 
 func (h *ExerciseHandler) GetAllExercises(w http.ResponseWriter, r *http.Request) {
-	exercises, err := h.Repo.GetAllExercises()
-	if err != nil {
-		http.Error(w, "Ошибка при загрузке упражнений", http.StatusInternalServerError)
+	userID, ok := getUserID(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(exercises)
+	exercises, err := h.Repo.GetAllExercises(userID)
 	if err != nil {
-		http.Error(w, "Ошибка при кодировании ответа", http.StatusInternalServerError)
+		log.Println("GetAllExercises error:", err)
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to fetch exercises"})
+		return
 	}
+
+	writeJSON(w, http.StatusOK, Response{
+		Status: "success",
+		Data:   exercises,
+	})
 }
 
 func (h *ExerciseHandler) UpdateExercise(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := uuid.Parse(idStr)
+	userID, ok := getUserID(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
+		return
+	}
+
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
-		http.Error(w, "Некорректный UUID формат", http.StatusBadRequest)
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Message: "Invalid UUID"})
 		return
 	}
 
 	var input struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		PrimaryMuscles   []string `json:"primary_muscles"`  
-        SecondaryMuscles []string `json:"secondary_muscles"`
-		VideoURL    string `json:"video_url"`
+		Name             string   `json:"name"`
+		Description      string   `json:"description"`
+		PrimaryMuscles   []string `json:"primary_muscles"`
+		SecondaryMuscles []string `json:"secondary_muscles"`
+		VideoURL         string   `json:"video_url"`
 	}
 
-	err = json.NewDecoder(r.Body).Decode(&input)
-	if err != nil {
-		http.Error(w, "Некорректный JSON", http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Message: "Invalid JSON"})
 		return
 	}
 
-	exercise, err := h.Repo.GetExerciseByID(id)
+	exercise, err := h.Repo.GetExerciseByID(id, userID)
 	if err != nil {
-		http.Error(w, "Упражнение не найдено", http.StatusNotFound)
+		writeJSON(w, http.StatusNotFound, Response{Status: "error", Message: "Exercise not found"})
 		return
 	}
 
 	exercise.Name = input.Name
 	exercise.Description = input.Description
+	exercise.VideoURL = input.VideoURL
 	exercise.MuscleGroups = models.JSONB[models.MuscleData]{
 		Data: models.MuscleData{
 			Primary:   input.PrimaryMuscles,
 			Secondary: input.SecondaryMuscles,
 		},
 	}
-	exercise.VideoURL = input.VideoURL
 
-	err = h.Repo.UpdateExercise(exercise)
-	if err != nil {
-		http.Error(w, "Ошибка при обновлении упражнения", http.StatusInternalServerError)
+	if err := h.Repo.UpdateExercise(exercise, userID); err != nil {
+		log.Println("UpdateExercise error:", err)
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to update exercise"})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(exercise)
-	if err != nil {
-		http.Error(w, "Ошибка при кодировании ответа", http.StatusInternalServerError)
-	}
+	writeJSON(w, http.StatusOK, Response{
+		Status: "success",
+		Data:   exercise,
+	})
 }
 
 func (h *ExerciseHandler) DeleteExercise(w http.ResponseWriter, r *http.Request) {
-	currentUserID, ok := r.Context().Value("userID").(uuid.UUID)
-    if !ok {
-        http.Error(w, "Пользователь не авторизован", http.StatusUnauthorized)
-        return
-    }
-
-	idStr := r.PathValue("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, "Некорректный UUID формат", http.StatusBadRequest)
+	userID, ok := getUserID(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
 		return
 	}
 
-	err = h.Repo.DeleteExercise(id, currentUserID)
-    if err != nil {
-        http.Error(w, "Упражнение не найдено или доступ запрещен", http.StatusForbidden)
-        return
-    }
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Message: "Invalid UUID"})
+		return
+	}
 
-    w.WriteHeader(http.StatusNoContent)
+	if err := h.Repo.DeleteExercise(id, userID); err != nil {
+		writeJSON(w, http.StatusForbidden, Response{Status: "error", Message: err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, Response{
+		Status:  "success",
+		Message: "Exercise deleted",
+	})
 }
 
 func (h *ExerciseHandler) GetExercisesByMuscleGroup(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-
-	muscleGroups := query["muscle_group"]
-	if len(muscleGroups) == 0 {
-        http.Error(w, "Укажите хотя бы одну группу мышц", http.StatusBadRequest)
-        return
-    }
-
-
-	exercises, err := h.Repo.GetExercisesByMuscleGroup(muscleGroups)
-    if err != nil {
-        http.Error(w, "Ошибка базы данных", http.StatusInternalServerError)
-        return
-    }
-
-    w.Header().Set("Content-Type", "application/json")
-    err = json.NewEncoder(w).Encode(exercises)
-	if err != nil {
-		http.Error(w, "Ошибка при кодировании ответа", http.StatusInternalServerError)
+	userID, ok := getUserID(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
+		return
 	}
+
+	muscleGroups := r.URL.Query()["muscle_group"]
+	if len(muscleGroups) == 0 {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Message: "muscle_group required"})
+		return
+	}
+
+	exercises, err := h.Repo.GetExercisesByMuscleGroup(userID, muscleGroups)
+	if err != nil {
+		log.Println("GetExercisesByMuscleGroup error:", err)
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Database error"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, Response{
+		Status: "success",
+		Data:   exercises,
+	})
 }

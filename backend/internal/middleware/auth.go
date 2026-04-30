@@ -3,80 +3,88 @@ package middleware
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
-type contextKey string
+type contextKey struct{}
 
-const (
-	UserIDKey contextKey = "userID"
-)
+var UserIDKey = contextKey{}
 
 func AuthMiddleware(jwtSecret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				http.Error(w, "Отсутствует токен", http.StatusUnauthorized)
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}
 
-			// Проверяем, что header начинается с "Bearer "
 			if !strings.HasPrefix(authHeader, "Bearer ") {
-				http.Error(w, "Неверный формат токена", http.StatusUnauthorized)
+				http.Error(w, "invalid token format", http.StatusUnauthorized)
 				return
 			}
 
 			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-
-			// Проверяем, не пуст ли сам токен
 			if tokenStr == "" {
-				http.Error(w, "Токен не может быть пустым", http.StatusUnauthorized)
+				http.Error(w, "empty token", http.StatusUnauthorized)
 				return
 			}
 
 			token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, fmt.Errorf("неверный алгоритм подписи: %v", token.Header["alg"])
+					return nil, fmt.Errorf("invalid signing method")
 				}
 				return []byte(jwtSecret), nil
 			})
-			if err != nil {
-				log.Printf("Ошибка парсинга токена: %v", err)
-				http.Error(w, "Неверный токен", http.StatusUnauthorized)
-				return
-			}
 
-			if !token.Valid {
-				http.Error(w, "Неверный токен", http.StatusUnauthorized)
+			if err != nil || !token.Valid {
+				http.Error(w, "invalid token", http.StatusUnauthorized)
 				return
 			}
 
 			claims, ok := token.Claims.(jwt.MapClaims)
 			if !ok {
-				http.Error(w, "Неверный формат токена", http.StatusUnauthorized)
+				http.Error(w, "invalid token claims", http.StatusUnauthorized)
 				return
 			}
 
-			// Проверяем наличие и тип userID
-			userIDRaw, exists := claims["user_id"]
-			if !exists || userIDRaw == nil {
-				http.Error(w, "Токен не содержит user_id", http.StatusUnauthorized)
+			// ================= user_id =================
+
+			raw, ok := claims["user_id"]
+			if !ok || raw == nil {
+				http.Error(w, "missing user_id", http.StatusUnauthorized)
 				return
 			}
 
-			userID, ok := userIDRaw.(string)
-			if !ok {
-				http.Error(w, "Неверный формат user_id в токене", http.StatusUnauthorized)
+			var userID uuid.UUID
+
+			switch v := raw.(type) {
+
+			// если вдруг строка
+			case string:
+				uid, err := uuid.Parse(v)
+				if err != nil {
+					http.Error(w, "invalid user_id", http.StatusUnauthorized)
+					return
+				}
+				userID = uid
+
+			// если вдруг uuid.UUID (идеальный кейс)
+			case uuid.UUID:
+				userID = v
+
+			default:
+				http.Error(w, "invalid user_id type", http.StatusUnauthorized)
 				return
 			}
 
-			if userID == "" {
-				http.Error(w, "user_id не может быть пустым", http.StatusUnauthorized)
+			if userID == uuid.Nil {
+				http.Error(w, "invalid user_id", http.StatusUnauthorized)
 				return
 			}
 

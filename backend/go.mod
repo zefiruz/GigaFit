@@ -1,4 +1,4 @@
-module github.com/zefiruz/GigaFit/backend
+module gigafit
 
 go 1.25.3
 

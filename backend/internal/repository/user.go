@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/zefiruz/GigaFit/backend/internal/models"
+	"gigafit/internal/models"
 	"gorm.io/gorm"
 )
 
