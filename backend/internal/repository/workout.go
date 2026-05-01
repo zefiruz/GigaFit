@@ -9,10 +9,12 @@ import (
 
 type WorkoutRepository interface {
 	CreateWorkout(workout *models.Workout) error
-	GetWorkoutWithExercises(id uuid.UUID) (*models.Workout, error)
+	GetWorkoutByID(id uuid.UUID) (*models.Workout, error)
 	GetAllWorkouts(userID uuid.UUID) ([]models.Workout, error)
-	UpdateWorkout(workoutID uuid.UUID, exercises []models.WorkoutExercise) error
+	UpdateWorkoutMeta(workoutID uuid.UUID, userID uuid.UUID, updates map[string]interface{}) error
+	ReplaceWorkoutExercises(workoutID uuid.UUID, userID uuid.UUID, exercises []models.WorkoutExercise) error
 	DeleteWorkout(id uuid.UUID, userID uuid.UUID) error
+
 	IsOwner(workoutID, userID uuid.UUID) (bool, error)
 	GetAIWorkouts(userID uuid.UUID) ([]models.Workout, error)
 	GetPublicWorkouts() ([]models.Workout, error)
@@ -39,7 +41,7 @@ func (r *postgresWorkoutRepository) CreateWorkout(workout *models.Workout) error
 // 	return &workout, nil
 // }
 
-func (r *postgresWorkoutRepository) GetWorkoutWithExercises(id uuid.UUID) (*models.Workout, error) {
+func (r *postgresWorkoutRepository) GetWorkoutByID(id uuid.UUID) (*models.Workout, error) {
 	var workout models.Workout
 
 	err := r.db.
@@ -63,19 +65,50 @@ func (r *postgresWorkoutRepository) GetAllWorkouts(userID uuid.UUID) ([]models.W
 	return workouts, err
 }
 
-func (r *postgresWorkoutRepository) UpdateWorkout(workoutID uuid.UUID, exercises []models.WorkoutExercise) error {
+func (r *postgresWorkoutRepository) UpdateWorkoutMeta(
+	workoutID uuid.UUID,
+	userID uuid.UUID,
+	updates map[string]interface{},
+) error {
+	return r.db.Model(&models.Workout{}).
+		Where("id = ? AND author_id = ?", workoutID, userID).
+		Updates(updates).Error
+}
+
+func (r *postgresWorkoutRepository) ReplaceWorkoutExercises(
+	workoutID uuid.UUID,
+	userID uuid.UUID,
+	exercises []models.WorkoutExercise,
+) error {
 	tx := r.db.Begin()
 
+	// проверка владельца
+	var workout models.Workout
+	if err := tx.Where("id = ? AND author_id = ?", workoutID, userID).
+		First(&workout).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
 	// удаляем старые
-	if err := tx.Where("workout_id = ?", workoutID).Delete(&models.WorkoutExercise{}).Error; err != nil {
+	if err := tx.Where("workout_id = ?", workoutID).
+		Delete(&models.WorkoutExercise{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
 
 	// вставляем новые
-	if err := tx.Create(&exercises).Error; err != nil {
-		tx.Rollback()
-		return err
+	for i := range exercises {
+		exercises[i].ID = uuid.New()
+		exercises[i].WorkoutID = workoutID
+		exercises[i].OrderIndex = i
+	}
+
+	if len(exercises) > 0 {
+		if err := tx.Create(&exercises).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
 	}
 
 	return tx.Commit().Error

@@ -153,3 +153,163 @@ func (h *WorkoutHandler) CreateAIWorkout(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newWorkout)
 }
+
+// ================= GET WORKOUT BY ID =================
+func (h *WorkoutHandler) GetWorkoutByID(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid workout ID", http.StatusBadRequest)
+		return
+	}
+
+	workout, err := h.WorkoutRepo.GetWorkoutByID(id)
+	if err != nil {
+		http.Error(w, "Workout not found", http.StatusNotFound)
+		return
+	}
+
+	// 🔐 защита: чужие приватные нельзя
+	if workout.AuthorID != userID && !workout.IsPublic {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(workout)
+}
+
+// ================= GET ALL WORKOUTS =================
+func (h *WorkoutHandler) GetAllWorkouts(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	workouts, err := h.WorkoutRepo.GetAllWorkouts(userID)
+	if err != nil {
+		http.Error(w, "Failed to fetch workouts", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(workouts)
+}
+
+// ================= UPDATE WORKOUT =================
+
+func (h *WorkoutHandler) UpdateWorkoutMeta(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+
+	id, _ := uuid.Parse(r.PathValue("id"))
+
+	var input struct {
+		Title            *string `json:"title"`
+		Description      *string `json:"description"`
+		TotalDurationEst *int    `json:"total_duration_est"`
+		IsPublic         *bool   `json:"is_public"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	updates := map[string]interface{}{}
+
+	if input.Title != nil {
+		updates["title"] = *input.Title
+	}
+	if input.Description != nil {
+		updates["description"] = *input.Description
+	}
+	if input.TotalDurationEst != nil {
+		updates["total_duration_est"] = *input.TotalDurationEst
+	}
+	if input.IsPublic != nil {
+		updates["is_public"] = *input.IsPublic
+	}
+
+	if len(updates) == 0 {
+		http.Error(w, "No fields to update", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.WorkoutRepo.UpdateWorkoutMeta(id, userID, updates); err != nil {
+		http.Error(w, "Update failed", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *WorkoutHandler) UpdateWorkoutExercises(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+
+	workoutID, _ := uuid.Parse(r.PathValue("id"))
+
+	var input struct {
+		Exercises []struct {
+			ExerciseID uuid.UUID `json:"exercise_id"`
+			Sets       int       `json:"sets"`
+			Reps       int       `json:"reps"`
+		} `json:"exercises"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	var exercises []models.WorkoutExercise
+
+	for _, ex := range input.Exercises {
+		if ex.ExerciseID == uuid.Nil {
+			http.Error(w, "Invalid exercise_id", http.StatusBadRequest)
+			return
+		}
+
+		exercises = append(exercises, models.WorkoutExercise{
+			ExerciseID: ex.ExerciseID,
+			Sets:       ex.Sets,
+			Reps:       ex.Reps,
+		})
+	}
+
+	if err := h.WorkoutRepo.ReplaceWorkoutExercises(workoutID, userID, exercises); err != nil {
+		http.Error(w, "Update failed", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ================= DELETE WORKOUT =================
+func (h *WorkoutHandler) DeleteWorkout(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid workout ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.WorkoutRepo.DeleteWorkout(id, userID); err != nil {
+		http.Error(w, "Workout not found or forbidden", http.StatusForbidden)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

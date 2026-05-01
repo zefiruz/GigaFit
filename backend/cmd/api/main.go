@@ -11,35 +11,36 @@ import (
 	"gigafit/internal/middleware"
 	"gigafit/internal/models"
 	"gigafit/internal/repository"
+	"gigafit/service"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 func RouteGroup(mux *http.ServeMux, prefix string, middlewares ...func(http.Handler) http.Handler) func(string, http.HandlerFunc) {
-    return func(pattern string, handler http.HandlerFunc) {
-        var finalHandler http.Handler = handler
-        for i := len(middlewares) - 1; i >= 0; i-- {
-            finalHandler = middlewares[i](finalHandler)
-        }
+	return func(pattern string, handler http.HandlerFunc) {
+		var finalHandler http.Handler = handler
+		for i := len(middlewares) - 1; i >= 0; i-- {
+			finalHandler = middlewares[i](finalHandler)
+		}
 
-        // Чистим паттерн от лишних пробелов по краям
-        pattern = strings.TrimSpace(pattern)
-        parts := strings.SplitN(pattern, " ", 2)
-        
-        var fullPattern string
-        if len(parts) == 2 {
-            method := parts[0]
-            // Убираем возможные лишние пробелы внутри пути
-            path := strings.TrimSpace(parts[1]) 
-            fullPattern = fmt.Sprintf("%s %s%s", method, prefix, path)
-        } else {
-            fullPattern = prefix + pattern
-        }
+		// Чистим паттерн от лишних пробелов по краям
+		pattern = strings.TrimSpace(pattern)
+		parts := strings.SplitN(pattern, " ", 2)
 
-        // fmt.Printf("Mux Register: [%s]\n", fullPattern) // Для отладки в консоли
-        mux.Handle(fullPattern, finalHandler)
-    }
+		var fullPattern string
+		if len(parts) == 2 {
+			method := parts[0]
+			// Убираем возможные лишние пробелы внутри пути
+			path := strings.TrimSpace(parts[1])
+			fullPattern = fmt.Sprintf("%s %s%s", method, prefix, path)
+		} else {
+			fullPattern = prefix + pattern
+		}
+
+		// fmt.Printf("Mux Register: [%s]\n", fullPattern) // Для отладки в консоли
+		mux.Handle(fullPattern, finalHandler)
+	}
 }
 
 func main() {
@@ -69,9 +70,13 @@ func main() {
 
 	userRepo := repository.NewUserRepository(db)
 	exerciseRepo := repository.NewExerciseRepository(db)
+	workoutrepo := repository.NewWorkoutRepository(db)
+
+	aiService := service.NewGigaChatService(cfg.GigaChatSecret)
 
 	authHandler := handler.NewAuthHandler(userRepo, cfg.JWTSecret)
 	exerciseHandler := handler.NewExerciseHandler(exerciseRepo)
+	workoutHandler := handler.NewWorkoutHandler(workoutrepo, exerciseRepo, aiService)
 
 	mux := http.NewServeMux()
 
@@ -89,6 +94,16 @@ func main() {
 	exercise("PUT /exercise/{id}", exerciseHandler.UpdateExercise)
 	exercise("DELETE /exercise/{id}", exerciseHandler.DeleteExercise)
 
+	workout := RouteGroup(mux, "/api/v1", middleware.AuthMiddleware(cfg.JWTSecret))
+
+	workout("GET /workout/all", workoutHandler.GetAllWorkouts)
+	workout("POST /workout", workoutHandler.CreateManualWorkout)
+	workout("GET /workout/{id}", workoutHandler.GetWorkoutByID)
+	workout("PATCH /workout/{id}", workoutHandler.UpdateWorkoutMeta)
+	workout("PUT /workout/{id}/exercises", workoutHandler.UpdateWorkoutExercises)
+	workout("DELETE /workout/{id}", workoutHandler.DeleteWorkout)
+	workout("POST /workout/ai", workoutHandler.CreateAIWorkout)
+	
 	fmt.Println("Работает...")
 
 	err = http.ListenAndServe(":8080", mux)
