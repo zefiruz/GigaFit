@@ -1,94 +1,107 @@
 import 'package:flutter/material.dart';
-import 'widgets/theme.dart'; // Import your custom theme
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(const MyApp());
+// Правильные относительные пути внутри папки lib/
+import 'screens/login_screen.dart';
+import 'widgets/theme.dart';
+
+void main() async {
+  // Эта строка обязательна, если мы используем await до вызова runApp()
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Получаем доступ к локальному хранилищу
+  final prefs = await SharedPreferences.getInstance();
+
+  // Ищем сохраненный токен
+  final token = prefs.getString('jwt_token');
+
+  // Определяем, какой экран показать первым.
+  // Если токен есть и он не пустой — пускаем на MainScreen. Иначе — на LoginScreen.
+  final Widget initialScreen = (token != null && token.isNotEmpty)
+      ? const MainScreen()
+      : const LoginScreen();
+
+  // Запускаем приложение, передавая выбранный стартовый экран
+  runApp(MyApp(initialScreen: initialScreen));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final Widget initialScreen;
 
-  // This widget is the root of your application.
+  // Добавляем initialScreen в конструктор
+  const MyApp({super.key, required this.initialScreen});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'GigaFit', // Changed title to GigaFit
-      theme: AppTheme.light, // Use your custom theme
-      home: const HomeScreen(), // Set HomeScreen as the home widget
+      title: 'GigaFit',
+      theme: AppTheme.light, // Раскомментируй свою тему
+      // theme: ThemeData(
+      //   colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+      //   useMaterial3: true,
+      // ),
+      // Устанавливаем экран, который мы определили в функции main()
+      home: initialScreen,
     );
   }
 }
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<MainScreen> createState() => _MainScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  int _counter = 0;
+class _MainScreenState extends State<MainScreen> {
+  int _selectedIndex = 0;
 
-  void _incrementCounter() {
+  // Заглушки для твоих 5 экранов
+  static const List<Widget> _widgetOptions = <Widget>[
+    Center(child: Text('Блок 1: Конструктор тренировок')),
+    Center(child: Text('Блок 2: Чат с ИИ')),
+    Center(child: Text('Блок 3: Мои тренировки')),
+    Center(child: Text('Блок 4: Лента')),
+    Center(child: Text('Блок 5: Профиль')),
+  ];
+
+  void _onItemTapped(int index) {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _selectedIndex = index;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
+        title: const Text('GigaFit'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text('Home Page'),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+      body: _widgetOptions.elementAt(_selectedIndex),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType
+            .fixed, // Позволяет отображать больше 3 иконок
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.build),
+            label: 'Конструктор',
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.smart_toy), label: 'ИИ'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.fitness_center),
+            label: 'Мои',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dynamic_feed),
+            label: 'Лента',
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Профиль'),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.deepPurple,
+        unselectedItemColor: Colors.grey,
+        onTap: _onItemTapped,
       ),
     );
   }
