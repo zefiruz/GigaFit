@@ -56,6 +56,7 @@ func main() {
 
 	err = db.AutoMigrate(
 		&models.User{},
+		&models.MeasurementLog{},
 		&models.Exercise{},
 		&models.Workout{},
 		&models.WorkoutExercise{},
@@ -63,6 +64,7 @@ func main() {
 		&models.PlanWorkout{},
 		&models.WorkoutLog{},
 		&models.AIRequest{},
+		&models.SavedWorkout{},
 	)
 	if err != nil {
 		log.Fatal("Ошибка миграции таблиц: ", err)
@@ -71,12 +73,14 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	exerciseRepo := repository.NewExerciseRepository(db)
 	workoutrepo := repository.NewWorkoutRepository(db)
+	profileRepo := repository.NewProfileRepository(db)
 
 	aiService := service.NewGigaChatService(cfg.GigaChatSecret)
 
 	authHandler := handler.NewAuthHandler(userRepo, cfg.JWTSecret)
 	exerciseHandler := handler.NewExerciseHandler(exerciseRepo)
 	workoutHandler := handler.NewWorkoutHandler(workoutrepo, exerciseRepo, aiService)
+	profileHandler := handler.NewProfileHandler(profileRepo)
 
 	mux := http.NewServeMux()
 
@@ -84,6 +88,13 @@ func main() {
 
 	public("POST /auth/register", authHandler.Register)
 	public("POST /auth/login", authHandler.Login)
+
+	profile := RouteGroup(mux, "/api/v1", middleware.AuthMiddleware(cfg.JWTSecret))
+	profile("GET /profile", profileHandler.GetProfile)
+	profile("PUT /profile", profileHandler.UpdateProfile)
+	profile("PUT /profile/anthropometry", profileHandler.UpdateAnthropometry)
+	profile("GET /profile/progress", profileHandler.GetProgress)
+	profile("GET /profile/stats", profileHandler.GetStats)
 
 	exercise := RouteGroup(mux, "/api/v1", middleware.AuthMiddleware(cfg.JWTSecret))
 

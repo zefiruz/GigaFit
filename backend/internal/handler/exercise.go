@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 
-	"gigafit/internal/middleware"
 	"gigafit/internal/models"
 	"gigafit/internal/repository"
 
@@ -18,27 +17,6 @@ type ExerciseHandler struct {
 
 func NewExerciseHandler(repo repository.ExerciseRepository) *ExerciseHandler {
 	return &ExerciseHandler{Repo: repo}
-}
-
-// ====== RESPONSE STRUCT ======
-
-type Response struct {
-	Status  string      `json:"status"`
-	Data    interface{} `json:"data,omitempty"`
-	Message string      `json:"message,omitempty"`
-}
-
-// ====== HELPERS ======
-
-func getUserID(r *http.Request) (uuid.UUID, bool) {
-	userID, ok := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
-	return userID, ok
-}
-
-func writeJSON(w http.ResponseWriter, status int, resp Response) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // ====== HANDLERS ======

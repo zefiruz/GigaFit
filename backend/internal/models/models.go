@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // Вспомогательные структуры для JSONB полей
@@ -55,13 +56,26 @@ type User struct {
 	ID            uuid.UUID        `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	Username      string           `gorm:"uniqueIndex;not null" json:"username"`
 	Email         string           `gorm:"uniqueIndex;not null" json:"email"`
-	PasswordHash  string           `gorm:"not null" json:"-"` // Пароль никогда не отдаем в JSON
-	CurrentWeight float64          `json:"current_weight"`
-	Height        float64          `json:"height"`
+	PasswordHash  string           `gorm:"not null" json:"-"` 
+	InitialWeight float64          `json:"initial_weight"`    
+	InitialHeight float64          `json:"initial_height"`    
+	CurrentWeight float64          `json:"current_weight"`    
+	CurrentHeight float64          `json:"current_height"`    
+	Gender        string           `json:"gender"`
 	Goal          string           `json:"goal"`
 	CachedStats   JSONB[UserStats] `gorm:"type:jsonb" json:"cached_stats"`
 	CreatedAt     time.Time        `json:"created_at"`
 	UpdatedAt     time.Time        `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt   `gorm:"index" json:"-"`
+	AvatarURL   string           `json:"avatar_url"`
+}
+
+type MeasurementLog struct {
+	ID        uuid.UUID `gorm:"type:uuid;primary_key" json:"id"`
+	UserID    uuid.UUID `gorm:"type:uuid;index;not null" json:"user_id"`
+	Weight    float64   `json:"weight"`
+	Height    float64   `json:"height"`
+	CreatedAt time.Time `json:"date"`
 }
 
 type Exercise struct {
@@ -72,6 +86,8 @@ type Exercise struct {
 	MuscleGroups JSONB[MuscleData] `gorm:"type:jsonb" json:"muscle_groups"`
 	Description  string            `json:"description"`
 	VideoURL     string            `json:"video_url"`
+	DeletedAt    gorm.DeletedAt    `gorm:"index" json:"-"`
+	ImageURL	string            `json:"image_url"`
 }
 
 type Workout struct {
@@ -83,6 +99,8 @@ type Workout struct {
 	TotalDurationEst int               `json:"total_duration_est"`
 	IsPublic         bool              `gorm:"default:false" json:"is_public"`
 	Exercises        []WorkoutExercise `gorm:"foreignKey:WorkoutID" json:"exercises"` // Связь один-ко-многим
+	DeletedAt        gorm.DeletedAt    `gorm:"index" json:"-"`
+	ImageURL string            `json:"image_url"`
 }
 
 // WorkoutExercise — промежуточная таблица с доп. параметрами нагрузки
@@ -98,13 +116,14 @@ type WorkoutExercise struct {
 }
 
 type TrainingPlan struct {
-	ID            uuid.UUID     `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	AuthorID      uuid.UUID     `gorm:"type:uuid;not null" json:"author_id"`
-	Title         string        `gorm:"not null" json:"title"`
-	Description   string        `json:"description"`
-	IsPublic      bool          `gorm:"default:false" json:"is_public"`
-	DurationWeeks int           `json:"duration_weeks"`
-	Workouts      []PlanWorkout `gorm:"foreignKey:PlanID" json:"workouts"`
+	ID            uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	AuthorID      uuid.UUID      `gorm:"type:uuid;not null" json:"author_id"`
+	Title         string         `gorm:"not null" json:"title"`
+	Description   string         `json:"description"`
+	IsPublic      bool           `gorm:"default:false" json:"is_public"`
+	DurationWeeks int            `json:"duration_weeks"`
+	Workouts      []PlanWorkout  `gorm:"foreignKey:PlanID" json:"workouts"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type PlanWorkout struct {
@@ -124,10 +143,18 @@ type WorkoutLog struct {
 	CreatedAt time.Time                    `json:"created_at"`
 }
 
+type SavedWorkout struct {
+	UserID    uuid.UUID `gorm:"type:uuid;primaryKey" json:"user_id"`
+	WorkoutID uuid.UUID `gorm:"type:uuid;primaryKey" json:"workout_id"`
+	Workout   Workout   `gorm:"foreignKey:WorkoutID" json:"workout_info"` 
+	CreatedAt time.Time `json:"saved_at"`
+}
+
 type AIRequest struct {
 	ID        uuid.UUID             `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	UserID    uuid.UUID             `gorm:"type:uuid;index" json:"user_id"`
 	Prompt    string                `gorm:"not null" json:"prompt"`
 	Response  JSONB[map[string]any] `gorm:"type:jsonb" json:"response"`
 	CreatedAt time.Time             `json:"created_at"`
+	SessionID uuid.UUID             `gorm:"type:uuid;index" json:"session_id"`
 }
