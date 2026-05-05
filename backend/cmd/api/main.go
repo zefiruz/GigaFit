@@ -78,6 +78,7 @@ func main() {
 	planRepo := repository.NewTrainingPlanRepository(db)
 	logRepo := repository.NewLogRepository(db)
 	communityRepo := repository.NewCommunityRepository(db)
+	chatRepo := repository.NewChatRepository(db)
 
 	aiService := service.NewGigaChatService(cfg.GigaChatSecret)
 
@@ -88,7 +89,8 @@ func main() {
 	planHandler := handler.NewPlanHandler(planRepo)
 	logHandler := handler.NewLogHandler(logRepo, aiService)
 	commHandler := handler.NewCommunityHandler(communityRepo)
-
+	chatHandler := handler.NewChatHandler(chatRepo, aiService)
+	
 	mux := http.NewServeMux()
 
 	public := RouteGroup(mux, "/api/v1")
@@ -142,6 +144,10 @@ func main() {
 	comm("POST /community/publish/{id}", commHandler.PublishWorkout)
 	comm("POST /community/like/{id}", commHandler.ToggleLike)
 	comm("POST /community/save/{id}", commHandler.SaveWorkout)
+
+	chat := RouteGroup(mux, "/api/v1", middleware.AuthMiddleware(cfg.JWTSecret))
+	chat("POST /chat/message", chatHandler.SendMessage)
+	chat("GET /chat/history", chatHandler.GetHistory)
 
 	fmt.Println("Работает...")
 
