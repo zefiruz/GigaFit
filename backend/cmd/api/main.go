@@ -75,6 +75,7 @@ func main() {
 	workoutrepo := repository.NewWorkoutRepository(db)
 	profileRepo := repository.NewProfileRepository(db)
 	planRepo := repository.NewTrainingPlanRepository(db)
+	logRepo := repository.NewLogRepository(db)
 
 	aiService := service.NewGigaChatService(cfg.GigaChatSecret)
 
@@ -83,6 +84,7 @@ func main() {
 	workoutHandler := handler.NewWorkoutHandler(workoutrepo, exerciseRepo, aiService)
 	profileHandler := handler.NewProfileHandler(profileRepo)
 	planHandler := handler.NewPlanHandler(planRepo)
+	logHandler := handler.NewLogHandler(logRepo, aiService)
 
 	mux := http.NewServeMux()
 
@@ -124,6 +126,12 @@ func main() {
 	plan("GET /plan/{id}", planHandler.GetPlanByID)
 	plan("PATCH /plan/{id}", planHandler.UpdatePlan) 
 	plan("DELETE /plan/{id}", planHandler.DeletePlan)
+
+	logs := RouteGroup(mux, "/api/v1", middleware.AuthMiddleware(cfg.JWTSecret))
+	
+	logs("POST /log", logHandler.CreateLog)
+	logs("GET /log/all", logHandler.GetAllLogs)
+	logs("POST /log/ai-advice", logHandler.GetAIAdvice)
 
 	fmt.Println("Работает...")
 
