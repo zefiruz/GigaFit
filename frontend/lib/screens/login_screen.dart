@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../services/api_service.dart';
-import '../main.dart';
-import '../widgets/theme.dart';
+import '../services/auth_service.dart';
 import 'register_screen.dart';
+import '../widgets/theme.dart';
+import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,16 +14,15 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final ApiService _apiService = ApiService();
+  // Используем AuthService вместо ApiService
+  final AuthService _authService = AuthService();
 
-  // Контроллеры для считывания текста из полей
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  bool _isLoading = false; // Состояние загрузки
-  bool _obscurePassword = true; // Скрытие пароля
+  bool _isLoading = false;
+  bool _obscurePassword = true;
 
-  // Функция обработки нажатия на кнопку "Войти"
   Future<void> _handleLogin() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -39,28 +38,34 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
-    // Обращаемся к твоему бэкенду
-    final token = await _apiService.login(email, password);
+    // Вызываем метод логина из нашего нового сервиса
+    final token = await _authService.login(email, password);
 
-    setState(() {
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
 
     if (token != null) {
-      // Если токен получен успешно, переходим на главный экран
+      // Если токен получен (успех), переходим на главный экран
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
+            // Убедись, что класс MainScreen создан в main.dart или отдельном файле
             builder: (context) => const MainScreen(),
-          ), // Замени на свой класс главного экрана
+          ),
         );
       }
     } else {
-      // Если логин не удался (например, неверный пароль)
+      // Если токен null (ошибка), показываем уведомление
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Неверный email или пароль')),
+          const SnackBar(
+            content: Text('Неверный email или пароль'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -84,14 +89,13 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Логотип или заголовок
                 Text(
                   'GigaFit',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     fontSize: 40,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primary, // Из твоего theme.dart
+                    color: AppColors.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -125,9 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
                       ),
                       onPressed: () {
                         setState(() {
@@ -167,7 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Переход на экран регистрации (заглушка)
+                // Переход на регистрацию
                 TextButton(
                   onPressed: () {
                     Navigator.push(

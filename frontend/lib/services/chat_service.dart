@@ -4,41 +4,60 @@ import 'api_client.dart';
 class ChatService {
   final ApiClient _client = ApiClient();
 
-  // --- 1. ОТПРАВИТЬ СООБЩЕНИЕ ---
-  Future<Map<String, dynamic>?> sendMessage(String text) async {
+  // Отправка сообщения
+  Future<Map<String, dynamic>?> sendMessage(String message, {String? sessionId}) async {
     try {
-      final response = await _client.post(
-        '/chat/message',
-        {'text': text}, // Убедись, что ключ ('text' или 'message') совпадает с тем, что ждет бэкенд
-        timeout: const Duration(seconds: 30), // Ждем ответа от ИИ
-      );
+      final Map<String, dynamic> body = {'message': message};
+      if (sessionId != null) body['session_id'] = sessionId;
+
+      final response = await _client.post('/chat/message', body, timeout: const Duration(seconds: 30));
       
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['data'] ?? data;
-      } else {
-        print('--- [HTTP] Ошибка сервера при отправке сообщения: ${response.body} ---');
-        return null;
+        return data['data']; // Вернет {session_id, reply}
       }
+      return null;
     } catch (e) {
-      print('--- [HTTP] Ошибка sendMessage: $e ---');
       return null;
     }
   }
 
-  // --- 2. ПОЛУЧИТЬ ИСТОРИЮ ЧАТА ---
-  Future<List<dynamic>> getHistory() async {
+  // Получение истории по конкретной сессии
+  Future<List<dynamic>> getHistory(String sessionId) async {
     try {
-      final response = await _client.get('/chat/history');
-      
+      final response = await _client.get('/chat/history?session_id=$sessionId');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['data'] ?? [];
       }
       return [];
     } catch (e) {
-      print('--- [HTTP] Ошибка getHistory: $e ---');
       return [];
     }
   }
+
+  // --- ПОЛУЧИТЬ ПЕРСОНАЛИЗИРОВАННЫЙ СОВЕТ ПОСЛЕ ТРЕНИРОВКИ ---
+  Future<String?> getWorkoutAdvice(int duration, String mood, String comment) async {
+    try {
+      final response = await _client.post(
+        '/logs/advice', // <-- Укажи здесь точный маршрут из твоего main.go
+        {
+          'actual_duration_mins': duration,
+          'mood': mood,
+          'comment': comment,
+        },
+        timeout: const Duration(seconds: 30),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['data']['advice'];
+      }
+      return null;
+    } catch (e) {
+      print('Ошибка getWorkoutAdvice: $e');
+      return null;
+    }
+  }
 }
+

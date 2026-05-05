@@ -8,11 +8,11 @@ class ProfileService {
   Future<Map<String, dynamic>?> getProfile() async {
     try {
       final response = await _client.get('/profile');
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         // Предполагаем стандартную обертку твоего бэкенда { "status": "...", "data": {...} }
-        return data['data']; 
+        return data['data'];
       } else {
         print('Ошибка getProfile: ${response.statusCode}');
         return null;
@@ -26,11 +26,8 @@ class ProfileService {
   // --- 2. ОБНОВИТЬ ПРОФИЛЬ (например, имя) ---
   Future<bool> updateProfile({required String username}) async {
     try {
-      final response = await _client.put(
-        '/profile',
-        {'username': username},
-      );
-      
+      final response = await _client.put('/profile', {'username': username});
+
       return response.statusCode == 200;
     } catch (e) {
       print('Сетевая ошибка updateProfile: $e');
@@ -45,15 +42,12 @@ class ProfileService {
     required String goal,
   }) async {
     try {
-      final response = await _client.put(
-        '/profile/anthropometry',
-        {
-          'weight': weight,
-          'height': height,
-          'goal': goal,
-        },
-      );
-      
+      final response = await _client.put('/profile/anthropometry', {
+        'weight': weight,
+        'height': height,
+        'goal': goal,
+      });
+
       return response.statusCode == 200;
     } catch (e) {
       print('Сетевая ошибка updateAnthropometry: $e');
@@ -62,13 +56,13 @@ class ProfileService {
   }
 
   // --- 4. ПОЛУЧИТЬ ПРОГРЕСС (Графики/История веса) ---
-  Future<Map<String, dynamic>?> getProgress() async {
+  Future<dynamic> getProgress() async {
     try {
       final response = await _client.get('/profile/progress');
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['data'];
+        return data['data']; // Отдаем как есть
       }
       return null;
     } catch (e) {
@@ -81,7 +75,7 @@ class ProfileService {
   Future<Map<String, dynamic>?> getStats() async {
     try {
       final response = await _client.get('/profile/stats');
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['data'];

@@ -89,8 +89,8 @@ func main() {
 	planHandler := handler.NewPlanHandler(planRepo)
 	logHandler := handler.NewLogHandler(logRepo, aiService)
 	commHandler := handler.NewCommunityHandler(communityRepo)
-	chatHandler := handler.NewChatHandler(chatRepo, aiService)
-	
+	chatHandler := handler.NewChatHandler(chatRepo, profileRepo, aiService)
+
 	mux := http.NewServeMux()
 
 	public := RouteGroup(mux, "/api/v1")

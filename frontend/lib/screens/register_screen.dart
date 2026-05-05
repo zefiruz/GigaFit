@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart'; // [cite: 83]
+import 'package:google_fonts/google_fonts.dart';
 
-import '../services/api_service.dart';
+// Импортируем наш новый сервис авторизации
+import '../services/auth_service.dart'; 
 import '../widgets/theme.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -12,7 +13,8 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final ApiService _apiService = ApiService();
+  // Используем AuthService вместо ApiService
+  final AuthService _authService = AuthService();
 
   // Контроллеры для считывания текста из полей
   final TextEditingController _usernameController = TextEditingController();
@@ -38,12 +40,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _isLoading = true;
     });
 
-    // Обращаемся к бэкенду. Теперь ждем текст ошибки (или null в случае успеха)
-    final errorMessage = await _apiService.register(username, email, password);
+    // Обращаемся к бэкенду через новый AuthService
+    final errorMessage = await _authService.register(username, email, password);
 
-    setState(() {
-      _isLoading = false;
-    });
+    // Безопасно выключаем загрузку
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
 
     // Если errorMessage пустой, значит ошибок нет — успех!
     if (errorMessage == null) {
@@ -84,7 +89,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       appBar: AppBar(
         title: Text(
           'Регистрация',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold), // [cite: 83]
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -103,7 +108,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primary, // [cite: 85]
+                    color: AppColors.primary, 
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -175,7 +180,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleRegister,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary, // [cite: 85]
+                      backgroundColor: AppColors.primary, 
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
