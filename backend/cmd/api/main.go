@@ -65,6 +65,7 @@ func main() {
 		&models.WorkoutLog{},
 		&models.AIRequest{},
 		&models.SavedWorkout{},
+		&models.WorkoutLike{},
 	)
 	if err != nil {
 		log.Fatal("Ошибка миграции таблиц: ", err)
@@ -76,6 +77,7 @@ func main() {
 	profileRepo := repository.NewProfileRepository(db)
 	planRepo := repository.NewTrainingPlanRepository(db)
 	logRepo := repository.NewLogRepository(db)
+	communityRepo := repository.NewCommunityRepository(db)
 
 	aiService := service.NewGigaChatService(cfg.GigaChatSecret)
 
@@ -85,6 +87,7 @@ func main() {
 	profileHandler := handler.NewProfileHandler(profileRepo)
 	planHandler := handler.NewPlanHandler(planRepo)
 	logHandler := handler.NewLogHandler(logRepo, aiService)
+	commHandler := handler.NewCommunityHandler(communityRepo)
 
 	mux := http.NewServeMux()
 
@@ -124,14 +127,21 @@ func main() {
 	plan("POST /plan", planHandler.CreatePlan)
 	plan("GET /plan/all", planHandler.GetAllPlans)
 	plan("GET /plan/{id}", planHandler.GetPlanByID)
-	plan("PATCH /plan/{id}", planHandler.UpdatePlan) 
+	plan("PATCH /plan/{id}", planHandler.UpdatePlan)
 	plan("DELETE /plan/{id}", planHandler.DeletePlan)
 
 	logs := RouteGroup(mux, "/api/v1", middleware.AuthMiddleware(cfg.JWTSecret))
-	
+
 	logs("POST /log", logHandler.CreateLog)
 	logs("GET /log/all", logHandler.GetAllLogs)
 	logs("POST /log/ai-advice", logHandler.GetAIAdvice)
+
+	comm := RouteGroup(mux, "/api/v1", middleware.AuthMiddleware(cfg.JWTSecret))
+
+	comm("GET /community/feed", commHandler.GetFeed)
+	comm("POST /community/publish/{id}", commHandler.PublishWorkout)
+	comm("POST /community/like/{id}", commHandler.ToggleLike)
+	comm("POST /community/save/{id}", commHandler.SaveWorkout)
 
 	fmt.Println("Работает...")
 

@@ -56,18 +56,18 @@ type User struct {
 	ID            uuid.UUID        `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	Username      string           `gorm:"uniqueIndex;not null" json:"username"`
 	Email         string           `gorm:"uniqueIndex;not null" json:"email"`
-	PasswordHash  string           `gorm:"not null" json:"-"` 
-	InitialWeight float64          `json:"initial_weight"`    
-	InitialHeight float64          `json:"initial_height"`    
-	CurrentWeight float64          `json:"current_weight"`    
-	CurrentHeight float64          `json:"current_height"`    
+	PasswordHash  string           `gorm:"not null" json:"-"`
+	InitialWeight float64          `json:"initial_weight"`
+	InitialHeight float64          `json:"initial_height"`
+	CurrentWeight float64          `json:"current_weight"`
+	CurrentHeight float64          `json:"current_height"`
 	Gender        string           `json:"gender"`
 	Goal          string           `json:"goal"`
 	CachedStats   JSONB[UserStats] `gorm:"type:jsonb" json:"cached_stats"`
 	CreatedAt     time.Time        `json:"created_at"`
 	UpdatedAt     time.Time        `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt   `gorm:"index" json:"-"`
-	AvatarURL   string           `json:"avatar_url"`
+	AvatarURL     string           `json:"avatar_url"`
 }
 
 type MeasurementLog struct {
@@ -87,7 +87,7 @@ type Exercise struct {
 	Description  string            `json:"description"`
 	VideoURL     string            `json:"video_url"`
 	DeletedAt    gorm.DeletedAt    `gorm:"index" json:"-"`
-	ImageURL	string            `json:"image_url"`
+	ImageURL     string            `json:"image_url"`
 }
 
 type Workout struct {
@@ -98,9 +98,10 @@ type Workout struct {
 	IsAIGenerated    bool              `gorm:"default:false" json:"is_ai_generated"`
 	TotalDurationEst int               `json:"total_duration_est"`
 	IsPublic         bool              `gorm:"default:false" json:"is_public"`
+	LikesCount       int               `gorm:"default:0" json:"likes_count"`
 	Exercises        []WorkoutExercise `gorm:"foreignKey:WorkoutID" json:"exercises"` // Связь один-ко-многим
 	DeletedAt        gorm.DeletedAt    `gorm:"index" json:"-"`
-	ImageURL string            `json:"image_url"`
+	ImageURL         string            `json:"image_url"`
 }
 
 // WorkoutExercise — промежуточная таблица с доп. параметрами нагрузки
@@ -143,10 +144,16 @@ type WorkoutLog struct {
 	CreatedAt time.Time                    `json:"created_at"`
 }
 
+type WorkoutLike struct {
+	UserID    uuid.UUID `gorm:"type:uuid;primaryKey" json:"user_id"`
+	WorkoutID uuid.UUID `gorm:"type:uuid;primaryKey" json:"workout_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type SavedWorkout struct {
 	UserID    uuid.UUID `gorm:"type:uuid;primaryKey" json:"user_id"`
 	WorkoutID uuid.UUID `gorm:"type:uuid;primaryKey" json:"workout_id"`
-	Workout   Workout   `gorm:"foreignKey:WorkoutID" json:"workout_info"` 
+	Workout   Workout   `gorm:"foreignKey:WorkoutID" json:"workout_info"`
 	CreatedAt time.Time `json:"saved_at"`
 }
 
