@@ -14,6 +14,7 @@ type WorkoutRepository interface {
 	UpdateWorkoutMeta(workoutID uuid.UUID, userID uuid.UUID, updates map[string]interface{}) error
 	ReplaceWorkoutExercises(workoutID uuid.UUID, userID uuid.UUID, exercises []models.WorkoutExercise) error
 	DeleteWorkout(id uuid.UUID, userID uuid.UUID) error
+	HardDeleteWorkout(id uuid.UUID, userID uuid.UUID) error
 
 	IsOwner(workoutID, userID uuid.UUID) (bool, error)
 	GetAIWorkouts(userID uuid.UUID) ([]models.Workout, error)
@@ -33,33 +34,26 @@ func (r *postgresWorkoutRepository) CreateWorkout(workout *models.Workout) error
 	return r.db.Create(workout).Error
 }
 
-// func (r *postgresWorkoutRepository) GetWorkoutByID(id uuid.UUID) (*models.Workout, error) {
-// 	var workout models.Workout
-// 	if err := r.db.Where("id = ?", id).First(&workout).Error; err != nil {
-// 		return nil, err
-// 	}
-// 	return &workout, nil
-// }
-
 func (r *postgresWorkoutRepository) GetWorkoutByID(id uuid.UUID) (*models.Workout, error) {
 	var workout models.Workout
 
+	// Используем Preload для загрузки вложенных связей
 	err := r.db.
 		Preload("Exercises").
+		Preload("Exercises.Exercise").
 		Where("id = ?", id).
 		First(&workout).Error
-	if err != nil {
-		return nil, err
-	}
 
-	return &workout, nil
+	return &workout, err
 }
 
 func (r *postgresWorkoutRepository) GetAllWorkouts(userID uuid.UUID) ([]models.Workout, error) {
 	var workouts []models.Workout
 
-	err := r.db.Where("user_id = ? OR is_system = ?", userID, true).
-		Order("is_system DESC, created_at DESC").
+	err := r.db.
+		Preload("Exercises").
+		Preload("Exercises.Exercise"). // То же самое здесь
+		Where("user_id = ?", userID).
 		Find(&workouts).Error
 
 	return workouts, err
@@ -71,7 +65,7 @@ func (r *postgresWorkoutRepository) UpdateWorkoutMeta(
 	updates map[string]interface{},
 ) error {
 	return r.db.Model(&models.Workout{}).
-		Where("id = ? AND author_id = ?", workoutID, userID).
+		Where("id = ? AND user_id = ?", workoutID, userID).
 		Updates(updates).Error
 }
 
@@ -84,7 +78,7 @@ func (r *postgresWorkoutRepository) ReplaceWorkoutExercises(
 
 	// проверка владельца
 	var workout models.Workout
-	if err := tx.Where("id = ? AND author_id = ?", workoutID, userID).
+	if err := tx.Where("id = ? AND user_id = ?", workoutID, userID).
 		First(&workout).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -114,17 +108,29 @@ func (r *postgresWorkoutRepository) ReplaceWorkoutExercises(
 	return tx.Commit().Error
 }
 
+// 1. Обычное удаление (Soft Delete) - для Библиотеки
 func (r *postgresWorkoutRepository) DeleteWorkout(id uuid.UUID, userID uuid.UUID) error {
 	result := r.db.Where("id = ? AND user_id = ?", id, userID).Delete(&models.Workout{})
 
 	if result.Error != nil {
 		return result.Error
 	}
-
 	if result.RowsAffected == 0 {
 		return gorm.ErrRecordNotFound
 	}
+	return nil
+}
 
+// 2. Полное физическое удаление (Hard Delete) - для отмены черновиков ИИ
+func (r *postgresWorkoutRepository) HardDeleteWorkout(id uuid.UUID, userID uuid.UUID) error {
+	result := r.db.Unscoped().Where("id = ? AND user_id = ?", id, userID).Delete(&models.Workout{})
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
 	return nil
 }
 

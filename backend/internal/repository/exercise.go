@@ -41,7 +41,7 @@ func (r *postgresExerciseRepository) GetExerciseByID(id, userID uuid.UUID) (*mod
 	var exercise models.Exercise
 
 	err := r.db.
-		Where("id = ? AND (user_id = ? OR is_system = ?)", id, userID, true).
+		Where("id = ? AND (user_id = ? OR status = ?)", id, userID, "system").
 		First(&exercise).Error
 	if err != nil {
 		return nil, err
@@ -52,17 +52,15 @@ func (r *postgresExerciseRepository) GetExerciseByID(id, userID uuid.UUID) (*mod
 
 func (r *postgresExerciseRepository) GetAllExercises(userID uuid.UUID) ([]models.Exercise, error) {
 	var exercises []models.Exercise
-
-	err := r.db.Where("user_id = ? OR is_system = ?", userID, true).
-		Order("is_system DESC, created_at DESC").
+	err := r.db.Where("user_id = ? OR status = ?", userID, "system").
+		Order("status DESC").
 		Find(&exercises).Error
-
 	return exercises, err
 }
 
 func (r *postgresExerciseRepository) UpdateExercise(exercise *models.Exercise, userID uuid.UUID) error {
-	result := r.db.Model((&models.Exercise{})).
-		Where("id = ? AND user_id = ? AND is_system = ?", exercise.ID, userID, false).
+	result := r.db.Model(&models.Exercise{}).
+		Where("id = ? AND user_id = ?", exercise.ID, userID).
 		Updates(exercise)
 
 	if result.Error != nil {
@@ -95,14 +93,14 @@ func (r *postgresExerciseRepository) GetExercisesByMuscleGroup(userID uuid.UUID,
 	var exercises []models.Exercise
 
 	query := `
-		(user_id = ? OR is_system = true) AND (
+		(user_id = ? OR status = ?) AND (
 			jsonb_exists_any(muscle_groups->'primary', ?) OR
 			jsonb_exists_any(muscle_groups->'secondary', ?)
 		)
 	`
 
 	err := r.db.
-		Where(query, userID, pq.Array(muscleGroups), pq.Array(muscleGroups)).
+		Where(query, userID, "system", pq.Array(muscleGroups), pq.Array(muscleGroups)).
 		Find(&exercises).Error
 
 	return exercises, err
@@ -121,7 +119,7 @@ func (r *postgresExerciseRepository) GetUserExercises(userID uuid.UUID) ([]model
 func (r *postgresExerciseRepository) GetSystemExercises() ([]models.Exercise, error) {
 	var exercises []models.Exercise
 
-	err := r.db.Where("is_system = ?", true).Find(&exercises).Error
+	err := r.db.Where("status = ?", "system").Find(&exercises).Error
 	return exercises, err
 }
 
@@ -129,7 +127,7 @@ func (r *postgresExerciseRepository) SearchExercises(userID uuid.UUID, query str
 	var exercises []models.Exercise
 
 	err := r.db.
-		Where("(user_id = ? OR is_system = ?) AND name ILIKE ?", userID, true, "%"+query+"%").
+		Where("(user_id = ? OR status = ?) AND name ILIKE ?", userID, "system", "%"+query+"%").
 		Find(&exercises).Error
 
 	return exercises, err

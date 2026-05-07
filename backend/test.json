@@ -1,0 +1,498 @@
+{
+    "id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+    "author_id": "257c38a7-a217-4e31-917d-febefeb93790",
+    "title": "Всего тела",
+    "description": "Комплексная тренировка для развития всех основных мышечных групп",
+    "is_ai_generated": true,
+    "total_duration_est": 45,
+    "is_public": false,
+    "likes_count": 0,
+    "exercises": [
+        {
+            "id": "7c06c0b6-e13e-4c7f-84b0-e3208d2b7541",
+            "workout_id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+            "exercise_id": "711619c3-e98a-404a-a44c-51b27c7323da",
+            "exercise_info": {
+                "id": "711619c3-e98a-404a-a44c-51b27c7323da",
+                "user_id": null,
+                "name": "Приседания со штангой",
+                "status": "system",
+                "muscle_groups": {
+                    "primary": [
+                        "Квадрицепс",
+                        "Ягодицы"
+                    ],
+                    "secondary": [
+                        "Задняя поверхность бедра",
+                        "Икры",
+                        "Кор"
+                    ]
+                },
+                "description": "Король всех упражнений. Развивает силу и массу нижней части тела.",
+                "video_url": "",
+                "image_url": ""
+            },
+            "sets": 3,
+            "reps": 8,
+            "load_params": {
+                "weight": 0,
+                "intensity": 0,
+                "rest_seconds": 0,
+                "tempo": "",
+                "target_rpe": 0
+            },
+            "order_index": 0
+        },
+        {
+            "id": "d82a265a-bc12-4029-b37f-adbe61034880",
+            "workout_id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+            "exercise_id": "bc8b8a10-93f1-459b-976f-fd91b4b8d269",
+            "exercise_info": {
+                "id": "bc8b8a10-93f1-459b-976f-fd91b4b8d269",
+                "user_id": null,
+                "name": "Отжимания на брусьях",
+                "status": "system",
+                "muscle_groups": {
+                    "primary": [
+                        "Грудные",
+                        "Трицепс"
+                    ],
+                    "secondary": [
+                        "Передние дельты"
+                    ]
+                },
+                "description": "Тяжелое базовое упражнение с собственным весом для низа груди и трицепсов.",
+                "video_url": "",
+                "image_url": ""
+            },
+            "sets": 3,
+            "reps": 8,
+            "load_params": {
+                "weight": 0,
+                "intensity": 0,
+                "rest_seconds": 0,
+                "tempo": "",
+                "target_rpe": 0
+            },
+            "order_index": 1
+        },
+        {
+            "id": "165af5de-e05b-407a-a94a-f5d4c5714afd",
+            "workout_id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+            "exercise_id": "2f27d61d-8992-4a84-9719-c3c793dec21d",
+            "exercise_info": {
+                "id": "2f27d61d-8992-4a84-9719-c3c793dec21d",
+                "user_id": null,
+                "name": "Жим штанги лежа",
+                "status": "system",
+                "muscle_groups": {
+                    "primary": [
+                        "Грудные"
+                    ],
+                    "secondary": [
+                        "Трицепс",
+                        "Передние дельты"
+                    ]
+                },
+                "description": "Классическое базовое упражнение для развития грудных мышц. Выполняется на горизонтальной скамье.",
+                "video_url": "",
+                "image_url": ""
+            },
+            "sets": 3,
+            "reps": 8,
+            "load_params": {
+                "weight": 0,
+                "intensity": 0,
+                "rest_seconds": 0,
+                "tempo": "",
+                "target_rpe": 0
+            },
+            "order_index": 2
+        },
+        {
+            "id": "de34d87a-b2e8-4f4e-9bd8-9a857c3cc9ae",
+            "workout_id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+            "exercise_id": "32076647-2ac2-4bbf-8c3f-9b18cab60d87",
+            "exercise_info": {
+                "id": "32076647-2ac2-4bbf-8c3f-9b18cab60d87",
+                "user_id": null,
+                "name": "Тяга штанги в наклоне",
+                "status": "system",
+                "muscle_groups": {
+                    "primary": [
+                        "Широчайшие",
+                        "Ромбовидные"
+                    ],
+                    "secondary": [
+                        "Бицепс",
+                        "Задние дельты"
+                    ]
+                },
+                "description": "Отличное упражнение для утолщения мышц спины.",
+                "video_url": "",
+                "image_url": ""
+            },
+            "sets": 3,
+            "reps": 8,
+            "load_params": {
+                "weight": 0,
+                "intensity": 0,
+                "rest_seconds": 0,
+                "tempo": "",
+                "target_rpe": 0
+            },
+            "order_index": 3
+        },
+        {
+            "id": "e4bd349e-4455-4546-a3ed-fe90b731af76",
+            "workout_id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+            "exercise_id": "bdb0616c-c010-428f-8011-a5fe7c577995",
+            "exercise_info": {
+                "id": "bdb0616c-c010-428f-8011-a5fe7c577995",
+                "user_id": null,
+                "name": "Румынская тяга",
+                "status": "system",
+                "muscle_groups": {
+                    "primary": [
+                        "Задняя поверхность бедра",
+                        "Ягодицы"
+                    ],
+                    "secondary": [
+                        "Разгибатели спины"
+                    ]
+                },
+                "description": "Базовое упражнение для задней поверхности бедра. Выполняется на слегка согнутых ногах.",
+                "video_url": "",
+                "image_url": ""
+            },
+            "sets": 3,
+            "reps": 8,
+            "load_params": {
+                "weight": 0,
+                "intensity": 0,
+                "rest_seconds": 0,
+                "tempo": "",
+                "target_rpe": 0
+            },
+            "order_index": 4
+        },
+        {
+            "id": "986916f4-241e-4bdb-b12a-a22d892eb78e",
+            "workout_id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+            "exercise_id": "8278e443-ae53-4370-8c17-3aba833f43d6",
+            "exercise_info": {
+                "id": "8278e443-ae53-4370-8c17-3aba833f43d6",
+                "user_id": null,
+                "name": "Сгибание ног в тренажере лежа",
+                "status": "system",
+                "muscle_groups": {
+                    "primary": [
+                        "Задняя поверхность бедра"
+                    ],
+                    "secondary": [
+                        "Икры"
+                    ]
+                },
+                "description": "Изолированно прорабатывает бицепс бедра.",
+                "video_url": "",
+                "image_url": ""
+            },
+            "sets": 3,
+            "reps": 10,
+            "load_params": {
+                "weight": 0,
+                "intensity": 0,
+                "rest_seconds": 0,
+                "tempo": "",
+                "target_rpe": 0
+            },
+            "order_index": 5
+        },
+        {
+            "id": "266be76d-d3bb-44c7-9220-54411d84f53a",
+            "workout_id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+            "exercise_id": "60d20ae2-7a71-462b-b7ac-eddc3ee3afcf",
+            "exercise_info": {
+                "id": "60d20ae2-7a71-462b-b7ac-eddc3ee3afcf",
+                "user_id": null,
+                "name": "Жим гантелей сидя",
+                "status": "system",
+                "muscle_groups": {
+                    "primary": [
+                        "Передние дельты",
+                        "Средние дельты"
+                    ],
+                    "secondary": [
+                        "Трицепс"
+                    ]
+                },
+                "description": "Базовое упражнение для плеч, менее травмоопасное для поясницы, чем жим стоя.",
+                "video_url": "",
+                "image_url": ""
+            },
+            "sets": 3,
+            "reps": 10,
+            "load_params": {
+                "weight": 0,
+                "intensity": 0,
+                "rest_seconds": 0,
+                "tempo": "",
+                "target_rpe": 0
+            },
+            "order_index": 6
+        },
+        {
+            "id": "91f4045c-8471-4b5e-9654-05f3e4e387be",
+            "workout_id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+            "exercise_id": "59be4ff2-8230-4faf-ac49-c108ce3401b9",
+            "exercise_info": {
+                "id": "59be4ff2-8230-4faf-ac49-c108ce3401b9",
+                "user_id": null,
+                "name": "Подъем на носки стоя",
+                "status": "system",
+                "muscle_groups": {
+                    "primary": [
+                        "Икры"
+                    ]
+                },
+                "description": "Основное упражнение для развития икроножных мышц.",
+                "video_url": "",
+                "image_url": ""
+            },
+            "sets": 3,
+            "reps": 12,
+            "load_params": {
+                "weight": 0,
+                "intensity": 0,
+                "rest_seconds": 0,
+                "tempo": "",
+                "target_rpe": 0
+            },
+            "order_index": 7
+        },
+        {
+            "id": "4e5fcb44-75cc-44df-ac4f-6df4a36c54aa",
+            "workout_id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+            "exercise_id": "448f3384-b76b-429d-8440-111bd61deb63",
+            "exercise_info": {
+                "id": "448f3384-b76b-429d-8440-111bd61deb63",
+                "user_id": null,
+                "name": "Тяга верхнего блока к груди",
+                "status": "system",
+                "muscle_groups": {
+                    "primary": [
+                        "Широчайшие"
+                    ],
+                    "secondary": [
+                        "Бицепс",
+                        "Средняя часть спины"
+                    ]
+                },
+                "description": "Альтернатива подтягиваниям, отлично подходит для новичков и развития ширины спины.",
+                "video_url": "",
+                "image_url": ""
+            },
+            "sets": 3,
+            "reps": 10,
+            "load_params": {
+                "weight": 0,
+                "intensity": 0,
+                "rest_seconds": 0,
+                "tempo": "",
+                "target_rpe": 0
+            },
+            "order_index": 8
+        },
+        {
+            "id": "286bb6fc-c094-4862-bbe0-3fc379c90831",
+            "workout_id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+            "exercise_id": "36eb8931-c5c8-4bae-a451-611baefe784f",
+            "exercise_info": {
+                "id": "36eb8931-c5c8-4bae-a451-611baefe784f",
+                "user_id": null,
+                "name": "Тяга нижнего блока к поясу",
+                "status": "system",
+                "muscle_groups": {
+                    "primary": [
+                        "Широчайшие",
+                        "Ромбовидные"
+                    ],
+                    "secondary": [
+                        "Бицепс",
+                        "Задние дельты"
+                    ]
+                },
+                "description": "Базовое упражнение для развития толщины спины.",
+                "video_url": "",
+                "image_url": ""
+            },
+            "sets": 3,
+            "reps": 10,
+            "load_params": {
+                "weight": 0,
+                "intensity": 0,
+                "rest_seconds": 0,
+                "tempo": "",
+                "target_rpe": 0
+            },
+            "order_index": 9
+        },
+        {
+            "id": "45733eb7-5a70-4f86-85be-35fdb917412d",
+            "workout_id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+            "exercise_id": "5d67f78d-4909-4e6d-bc30-c96878b86b13",
+            "exercise_info": {
+                "id": "5d67f78d-4909-4e6d-bc30-c96878b86b13",
+                "user_id": null,
+                "name": "Французский жим",
+                "status": "system",
+                "muscle_groups": {
+                    "primary": [
+                        "Трицепс"
+                    ]
+                },
+                "description": "Эффективное изолирующее упражнение для всех трех головок трицепса.",
+                "video_url": "",
+                "image_url": ""
+            },
+            "sets": 3,
+            "reps": 10,
+            "load_params": {
+                "weight": 0,
+                "intensity": 0,
+                "rest_seconds": 0,
+                "tempo": "",
+                "target_rpe": 0
+            },
+            "order_index": 10
+        },
+        {
+            "id": "c5578025-af3e-4c6f-b919-cfe5a19c11d4",
+            "workout_id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+            "exercise_id": "9e2e8db7-ec6d-4739-b607-4412a192fbbd",
+            "exercise_info": {
+                "id": "9e2e8db7-ec6d-4739-b607-4412a192fbbd",
+                "user_id": null,
+                "name": "Жим гантелей на наклонной скамье",
+                "status": "system",
+                "muscle_groups": {
+                    "primary": [
+                        "Грудные"
+                    ],
+                    "secondary": [
+                        "Передние дельты",
+                        "Трицепс"
+                    ]
+                },
+                "description": "Развивает верхнюю часть грудных мышц. Использование гантелей позволяет увеличить амплитуду движения.",
+                "video_url": "",
+                "image_url": ""
+            },
+            "sets": 3,
+            "reps": 10,
+            "load_params": {
+                "weight": 0,
+                "intensity": 0,
+                "rest_seconds": 0,
+                "tempo": "",
+                "target_rpe": 0
+            },
+            "order_index": 11
+        },
+        {
+            "id": "ff9b6030-8cc4-4caa-96de-df9d49bf9432",
+            "workout_id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+            "exercise_id": "6c63e507-29e6-4378-8c3f-f8fdd3ee0b69",
+            "exercise_info": {
+                "id": "6c63e507-29e6-4378-8c3f-f8fdd3ee0b69",
+                "user_id": null,
+                "name": "Отжимания от пола",
+                "status": "system",
+                "muscle_groups": {
+                    "primary": [
+                        "Грудные"
+                    ],
+                    "secondary": [
+                        "Трицепс",
+                        "Кор"
+                    ]
+                },
+                "description": "Универсальное упражнение с собственным весом для развития груди и трицепса.",
+                "video_url": "",
+                "image_url": ""
+            },
+            "sets": 3,
+            "reps": 12,
+            "load_params": {
+                "weight": 0,
+                "intensity": 0,
+                "rest_seconds": 0,
+                "tempo": "",
+                "target_rpe": 0
+            },
+            "order_index": 12
+        },
+        {
+            "id": "ace0656c-59a1-41e7-919e-b9a0aef6c6b8",
+            "workout_id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+            "exercise_id": "37dc2e69-8063-42b0-93a2-b9562722bf59",
+            "exercise_info": {
+                "id": "37dc2e69-8063-42b0-93a2-b9562722bf59",
+                "user_id": null,
+                "name": "Подъем гантелей на бицепс с супинацией",
+                "status": "system",
+                "muscle_groups": {
+                    "primary": [
+                        "Бицепс"
+                    ],
+                    "secondary": [
+                        "Предплечья"
+                    ]
+                },
+                "description": "Классическое упражнение для бицепса с разворотом кисти для пикового сокращения.",
+                "video_url": "",
+                "image_url": ""
+            },
+            "sets": 3,
+            "reps": 10,
+            "load_params": {
+                "weight": 0,
+                "intensity": 0,
+                "rest_seconds": 0,
+                "tempo": "",
+                "target_rpe": 0
+            },
+            "order_index": 13
+        },
+        {
+            "id": "2a4e3296-b9dc-4e0f-8821-1ab4a733e5ab",
+            "workout_id": "52d60ed1-f670-4b40-95f9-5113ce08012a",
+            "exercise_id": "22ba804a-fbe2-48ae-894f-f5eab466dbe3",
+            "exercise_info": {
+                "id": "22ba804a-fbe2-48ae-894f-f5eab466dbe3",
+                "user_id": null,
+                "name": "Разгибание рук на блоке",
+                "status": "system",
+                "muscle_groups": {
+                    "primary": [
+                        "Трицепс"
+                    ]
+                },
+                "description": "Изолирующее упражнение на трицепс с использованием канатной или прямой рукояти.",
+                "video_url": "",
+                "image_url": ""
+            },
+            "sets": 3,
+            "reps": 10,
+            "load_params": {
+                "weight": 0,
+                "intensity": 0,
+                "rest_seconds": 0,
+                "tempo": "",
+                "target_rpe": 0
+            },
+            "order_index": 14
+        }
+    ],
+    "image_url": ""
+}

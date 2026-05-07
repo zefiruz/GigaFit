@@ -86,7 +86,7 @@ func main() {
 	exerciseHandler := handler.NewExerciseHandler(exerciseRepo)
 	workoutHandler := handler.NewWorkoutHandler(workoutrepo, exerciseRepo, aiService)
 	profileHandler := handler.NewProfileHandler(profileRepo)
-	planHandler := handler.NewPlanHandler(planRepo)
+	planHandler := handler.NewPlanHandler(planRepo, aiService, exerciseRepo)
 	logHandler := handler.NewLogHandler(logRepo, aiService)
 	commHandler := handler.NewCommunityHandler(communityRepo)
 	chatHandler := handler.NewChatHandler(chatRepo, profileRepo, aiService)
@@ -126,7 +126,8 @@ func main() {
 
 	plan := RouteGroup(mux, "/api/v1", middleware.AuthMiddleware(cfg.JWTSecret))
 
-	plan("POST /plan", planHandler.CreatePlan)
+	plan("POST /plan", planHandler.CreateManualPlan)
+	plan("POST /plan/ai", planHandler.CreateAIPlan)
 	plan("GET /plan/all", planHandler.GetAllPlans)
 	plan("GET /plan/{id}", planHandler.GetPlanByID)
 	plan("PATCH /plan/{id}", planHandler.UpdatePlan)

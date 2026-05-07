@@ -92,7 +92,7 @@ type Exercise struct {
 
 type Workout struct {
 	ID               uuid.UUID         `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	AuthorID         uuid.UUID         `gorm:"type:uuid;not null" json:"author_id"`
+	UserID           uuid.UUID         `gorm:"type:uuid;not null" json:"user_id"`
 	Title            string            `gorm:"not null" json:"title"`
 	Description      string            `json:"description"`
 	IsAIGenerated    bool              `gorm:"default:false" json:"is_ai_generated"`
@@ -118,7 +118,7 @@ type WorkoutExercise struct {
 
 type TrainingPlan struct {
 	ID            uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	AuthorID      uuid.UUID      `gorm:"type:uuid;not null" json:"author_id"`
+	UserID        uuid.UUID      `gorm:"type:uuid;not null" json:"user_id"`
 	Title         string         `gorm:"not null" json:"title"`
 	Description   string         `json:"description"`
 	IsPublic      bool           `gorm:"default:false" json:"is_public"`
@@ -132,7 +132,8 @@ type PlanWorkout struct {
 	PlanID     uuid.UUID `gorm:"type:uuid;index" json:"plan_id"`
 	WorkoutID  uuid.UUID `gorm:"type:uuid" json:"workout_id"`
 	Workout    Workout   `gorm:"foreignKey:WorkoutID" json:"workout_info"`
-	DayOfWeek  int       `json:"day_of_week"`
+	DayNumber  int       `json:"day_number"`
+	WeekNumber int       `json:"week_number"`
 	OrderIndex int       `json:"order_index"`
 }
 

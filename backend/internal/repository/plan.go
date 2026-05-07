@@ -32,7 +32,7 @@ func (r *postgresTrainingPlanRepository) GetTrainingPlanByID(id uuid.UUID, userI
 	var plan models.TrainingPlan
 
 	err := r.db.
-		Where("id = ? AND (author_id = ? OR is_public = ?)", id, userID, true).
+		Where("id = ? AND (user_id = ? OR is_public = ?)", id, userID, true).
 		Preload("Workouts").
 		First(&plan).Error
 	if err != nil {
@@ -46,8 +46,8 @@ func (r *postgresTrainingPlanRepository) GetAllTrainingPlans(userID uuid.UUID) (
 	var plans []models.TrainingPlan
 
 	err := r.db.
-		Where("author_id = ? OR is_public = ?", userID, true).
-		Preload("Workouts"). 
+		Where("user_id = ? OR is_public = ?", userID, true).
+		Preload("Workouts").
 		Find(&plans).Error
 	if err != nil {
 		return nil, err
@@ -58,10 +58,10 @@ func (r *postgresTrainingPlanRepository) GetAllTrainingPlans(userID uuid.UUID) (
 
 func (r *postgresTrainingPlanRepository) UpdateTrainingPlan(id uuid.UUID, userID uuid.UUID, updates map[string]interface{}) error {
 	return r.db.Model(&models.TrainingPlan{}).
-		Where("id = ? AND author_id = ?", id, userID).
+		Where("id = ? AND user_id = ?", id, userID).
 		Updates(updates).Error
 }
 
 func (r *postgresTrainingPlanRepository) DeleteTrainingPlan(id uuid.UUID, userID uuid.UUID) error {
-	return r.db.Where("id = ? AND author_id = ?", id, userID).Delete(&models.TrainingPlan{}).Error
+	return r.db.Where("id = ? AND user_id = ?", id, userID).Delete(&models.TrainingPlan{}).Error
 }

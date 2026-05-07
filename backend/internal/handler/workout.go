@@ -4,25 +4,25 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"gigafit/internal/middleware"
 	"gigafit/internal/models"
 	"gigafit/internal/repository"
 	"gigafit/service"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type WorkoutHandler struct {
-	WorkoutRepo     repository.WorkoutRepository
-	ExersiceRepo    repository.ExerciseRepository
-	GigaChatService service.GigaChatService
+	WorkoutRepo  repository.WorkoutRepository
+	ExersiceRepo repository.ExerciseRepository
+	AiService    service.GigaChatService
 }
 
-func NewWorkoutHandler(workoutRepo repository.WorkoutRepository, exerciseRepo repository.ExerciseRepository, gigaChatService service.GigaChatService) *WorkoutHandler {
+func NewWorkoutHandler(workoutRepo repository.WorkoutRepository, exerciseRepo repository.ExerciseRepository, aiService service.GigaChatService) *WorkoutHandler {
 	return &WorkoutHandler{
-		WorkoutRepo:     workoutRepo,
-		ExersiceRepo:    exerciseRepo,
-		GigaChatService: gigaChatService,
+		WorkoutRepo:  workoutRepo,
+		ExersiceRepo: exerciseRepo,
+		AiService:    aiService,
 	}
 }
 
@@ -75,16 +75,14 @@ func (h *WorkoutHandler) CreateManualWorkout(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(newWorkout)
+	writeJSON(w, http.StatusCreated, Response{Status: "success", Data: newWorkout})
 }
 
 func (h *WorkoutHandler) CreateAIWorkout(w http.ResponseWriter, r *http.Request) {
 	// 1. userID из контекста
-	userID, ok := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	userID, ok := getUserID(r)
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
 		return
 	}
 
@@ -100,7 +98,7 @@ func (h *WorkoutHandler) CreateAIWorkout(w http.ResponseWriter, r *http.Request)
 	// 3. Получаем доступные упражнения из БД
 	exercises, err := h.ExersiceRepo.GetAllExercises(userID)
 	if err != nil {
-		http.Error(w, "Failed to fetch exercises", http.StatusInternalServerError)
+		http.Error(w, "Failed to fetch exercises: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -110,7 +108,7 @@ func (h *WorkoutHandler) CreateAIWorkout(w http.ResponseWriter, r *http.Request)
 	}
 
 	// 4. Генерация тренировки через GigaChat
-	aiResponse, err := h.GigaChatService.GenerateWorkout(req.Goal, availableExercises)
+	aiResponse, err := h.AiService.GenerateWorkout(req.Goal, availableExercises)
 	if err != nil {
 		http.Error(w, "AI generation failed: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -133,7 +131,7 @@ func (h *WorkoutHandler) CreateAIWorkout(w http.ResponseWriter, r *http.Request)
 
 	newWorkout := models.Workout{
 		ID:               workoutID,
-		AuthorID:         userID,
+		UserID:           userID,
 		Title:            aiResponse.Title,
 		Description:      aiResponse.Description,
 		IsAIGenerated:    true,
@@ -148,17 +146,19 @@ func (h *WorkoutHandler) CreateAIWorkout(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// 7. Ответ
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(newWorkout)
+	fullWorkout, err := h.WorkoutRepo.GetWorkoutByID(workoutID)
+	if err != nil {
+		fullWorkout = &newWorkout
+	}
+
+	writeJSON(w, http.StatusCreated, Response{Status: "success", Data: fullWorkout})
 }
 
 // ================= GET WORKOUT BY ID =================
 func (h *WorkoutHandler) GetWorkoutByID(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	userID, ok := getUserID(r)
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
 		return
 	}
 
@@ -176,20 +176,19 @@ func (h *WorkoutHandler) GetWorkoutByID(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// 🔐 защита: чужие приватные нельзя
-	if workout.AuthorID != userID && !workout.IsPublic {
+	if workout.UserID != userID && !workout.IsPublic {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(workout)
+	writeJSON(w, http.StatusCreated, Response{Status: "success", Data: workout})
 }
 
 // ================= GET ALL WORKOUTS =================
 func (h *WorkoutHandler) GetAllWorkouts(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	userID, ok := getUserID(r)
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
 		return
 	}
 
@@ -199,14 +198,17 @@ func (h *WorkoutHandler) GetAllWorkouts(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(workouts)
+	writeJSON(w, http.StatusOK, Response{Status: "success", Data: workouts})
 }
 
 // ================= UPDATE WORKOUT =================
 
 func (h *WorkoutHandler) UpdateWorkoutMeta(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	userID, ok := getUserID(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
+		return
+	}
 
 	id, _ := uuid.Parse(r.PathValue("id"))
 
@@ -251,7 +253,11 @@ func (h *WorkoutHandler) UpdateWorkoutMeta(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *WorkoutHandler) UpdateWorkoutExercises(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	userID, ok := getUserID(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
+		return
+	}
 
 	workoutID, _ := uuid.Parse(r.PathValue("id"))
 
@@ -293,21 +299,36 @@ func (h *WorkoutHandler) UpdateWorkoutExercises(w http.ResponseWriter, r *http.R
 
 // ================= DELETE WORKOUT =================
 func (h *WorkoutHandler) DeleteWorkout(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	userID, ok := getUserID(r)
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
 		return
 	}
 
-	idStr := r.PathValue("id")
-	id, err := uuid.Parse(idStr)
+	// 2. Достаем ID тренировки из URL
+	workoutIDStr := r.PathValue("id")
+	workoutID, err := uuid.Parse(workoutIDStr)
 	if err != nil {
 		http.Error(w, "Invalid workout ID", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.WorkoutRepo.DeleteWorkout(id, userID); err != nil {
-		http.Error(w, "Workout not found or forbidden", http.StatusForbidden)
+	// 3. ПРОВЕРЯЕМ ПАРАМЕТР ?hard=true ИЗ URL
+	isHardDelete := r.URL.Query().Get("hard") == "true"
+
+	// 4. Вызываем нужный метод репозитория
+	if isHardDelete {
+		err = h.WorkoutRepo.HardDeleteWorkout(workoutID, userID)
+	} else {
+		err = h.WorkoutRepo.DeleteWorkout(workoutID, userID)
+	}
+
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			http.Error(w, "Workout not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Failed to delete workout", http.StatusInternalServerError)
 		return
 	}
 

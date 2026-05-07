@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient {
   final String baseUrl = 'http://192.168.31.69:8080/api/v1';
+  
+  //static const String baseUrl = 'http://10.0.2.2:8080';
 
   // Метод для получения токена из памяти
   Future<Map<String, String>> _getHeaders({bool useAuth = true}) async {

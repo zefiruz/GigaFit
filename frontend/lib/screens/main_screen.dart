@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'profile_screen.dart';
 import 'chat_screen.dart';
+import 'workout_builder_screen.dart';
+import 'my_library_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -12,12 +14,12 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  static const List<Widget> _widgetOptions = <Widget>[
-    Center(child: Text('Блок 1: Конструктор тренировок')),
-    ChatScreen(),
-    Center(child: Text('Блок 3: Мои тренировки')),
-    Center(child: Text('Блок 4: Лента')),
-    ProfileScreen(),
+  static final List<Widget> _widgetOptions = <Widget>[
+    const WorkoutBuilderScreen(),
+    const ChatScreen(),
+    const MyLibraryScreen(),
+    const Center(child: Text('Блок 4: Лента')),
+    const ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -29,23 +31,16 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('GigaFit'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        elevation: 0,
-      ),
       body: _widgetOptions.elementAt(_selectedIndex),
+
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // Чтобы влезло больше 3 иконок
+        type: BottomNavigationBarType.fixed,
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.build),
             label: 'Конструктор',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.smart_toy), 
-            label: 'ИИ',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.smart_toy), label: 'ИИ'),
           BottomNavigationBarItem(
             icon: Icon(Icons.fitness_center),
             label: 'Мои',
@@ -54,10 +49,7 @@ class _MainScreenState extends State<MainScreen> {
             icon: Icon(Icons.dynamic_feed),
             label: 'Лента',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person), 
-            label: 'Профиль',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Профиль'),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.deepPurple,
