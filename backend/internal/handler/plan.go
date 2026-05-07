@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"time"
 
 	"gigafit/internal/models"
 	"gigafit/internal/repository"
@@ -12,16 +14,23 @@ import (
 )
 
 type PlanHandler struct {
-	Repo      repository.TrainingPlanRepository
-	AiService service.GigaChatService
+	Repo         repository.TrainingPlanRepository
+	AiService    service.GigaChatService
 	ExerciseRepo repository.ExerciseRepository
+	WorkoutRepo  repository.WorkoutRepository
 }
 
-func NewPlanHandler(repo repository.TrainingPlanRepository, aiService service.GigaChatService, exerciseRepo repository.ExerciseRepository) *PlanHandler {
+func NewPlanHandler(
+	repo repository.TrainingPlanRepository,
+	aiService service.GigaChatService,
+	exerciseRepo repository.ExerciseRepository,
+	workoutRepo repository.WorkoutRepository,
+) *PlanHandler {
 	return &PlanHandler{
-		Repo: repo, 
-		AiService: aiService, 
+		Repo:         repo,
+		AiService:    aiService,
 		ExerciseRepo: exerciseRepo,
+		WorkoutRepo:  workoutRepo,
 	}
 }
 
@@ -69,7 +78,7 @@ func (h *PlanHandler) CreateManualPlan(w http.ResponseWriter, r *http.Request) {
 
 	plan := models.TrainingPlan{
 		ID:            planID,
-		UserID:      userID,
+		UserID:        userID,
 		Title:         input.Title,
 		Description:   input.Description,
 		IsPublic:      input.IsPublic,
@@ -103,58 +112,121 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exercises, _ := h.ExerciseRepo.GetAllExercises(userID)
+	// 1. Достаем доступные упражнения
+	exercises, err := h.ExerciseRepo.GetAllExercises(userID)
+	if err != nil || len(exercises) == 0 {
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "База упражнений пуста"})
+		return
+	}
 	availableExercises := make(map[uuid.UUID]string)
 	for _, ex := range exercises {
 		availableExercises[ex.ID] = ex.Name
 	}
 
-	// 2. Просим ИИ сгенерировать план (название, описание и массив тренировок)
-	aiPlanResponse, err := h.AiService.GeneratePlan(input.Goal, input.DaysPerWeek, availableExercises) // Передай доступные упражнения вместо nil
+	// 2. ШАГ ОРКЕСТРАЦИИ: Просим ИИ разбить цель на дни
+	blueprint, err := h.AiService.GeneratePlanOrchestrator(input.Goal, input.DaysPerWeek)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "AI failed to generate plan"})
+		fmt.Println("Ошибка Оркестратора:", err)
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "AI failed to orchestrate plan"})
 		return
 	}
 
-	// 3. Сохраняем сгенерированный план
+	// 3. Подготавливаемся к сохранению
 	planID := uuid.New()
 	var planWorkouts []models.PlanWorkout
 
-	// ИИ вернул нам структуру плана, внутри которой массив тренировок
-	for _, aiWorkout := range aiPlanResponse.Workouts {
+	// 4. ЦИКЛ ГЕНЕРАЦИИ: Проходимся по каждому придуманному дню
+	for i, dailyGoal := range blueprint.DailyGoals {
+		dayNumber := i + 1
 
-		// Создаем саму тренировку (Workout) в базе
+		var aiWorkout *service.AIWorkoutResponse
+		var err error
+
+		for attempt := 1; attempt <= 2; attempt++ {
+			aiWorkout, err = h.AiService.GenerateWorkout(fmt.Sprintf("Цель: %s. Фокус: %s", input.Goal, dailyGoal), availableExercises)
+			if err == nil {
+				break
+			}
+			fmt.Printf("Попытка %d для дня %d провалилась: %v. Пробуем еще раз...\n", attempt, dayNumber, err)
+			time.Sleep(1 * time.Second)
+		}
+
+		if err != nil {
+			fmt.Printf("Критическая ошибка генерации дня %d, пропускаем...\n", dayNumber)
+			continue
+		}
+
 		workoutID := uuid.New()
+		var workoutExercises []models.WorkoutExercise
 
-		// ... здесь логика парсинга упражнений для тренировки (аналогично CreateAIWorkout) ...
-		// В рамках MVP можно сохранять тренировки прямо через твой WorkoutRepo!
+		// 4.2. Собираем упражнения
+		for j, ex := range aiWorkout.Exercises {
+			workoutExercises = append(workoutExercises, models.WorkoutExercise{
+				ID:         uuid.New(),
+				WorkoutID:  workoutID,
+				ExerciseID: ex.ID,
+				OrderIndex: j,
+				Sets:       ex.Sets,
+				Reps:       ex.Reps,
+			})
+		}
 
-		// Привязываем созданную тренировку к нашему плану
+		// 4.3. Формируем модель тренировки
+		newWorkout := models.Workout{
+			ID:               workoutID,
+			UserID:           userID,
+			Title:            aiWorkout.Title,
+			Description:      fmt.Sprintf("Часть плана '%s'. Фокус: %s", input.Goal, dailyGoal),
+			IsAIGenerated:    true,
+			TotalDurationEst: 45,
+			IsPublic:         false,
+			Exercises:        workoutExercises,
+		}
+
+		// 4.4. Сохраняем тренировку
+		if err := h.WorkoutRepo.CreateWorkout(&newWorkout); err != nil {
+			continue // Пропускаем при ошибке БД
+		}
+
+		// 4.5. Привязываем к плану
 		planWorkouts = append(planWorkouts, models.PlanWorkout{
 			ID:         uuid.New(),
 			PlanID:     planID,
 			WorkoutID:  workoutID,
-			DayNumber:  aiWorkout.DayNumber,
-			WeekNumber: 1, // Для простоты MVP генерируем 1 неделю и повторяем её
+			DayNumber:  dayNumber,
+			WeekNumber: 1,
 		})
 	}
 
+	if len(planWorkouts) == 0 {
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Не удалось сгенерировать ни одной тренировки"})
+		return
+	}
+
+	// 5. Формируем и сохраняем финальный План
 	newPlan := models.TrainingPlan{
 		ID:            planID,
-		UserID:      userID,
-		Title:         aiPlanResponse.Title,
-		Description:   aiPlanResponse.Description,
-		IsPublic:      false, // Сгенерированное ИИ по умолчанию приватно
+		UserID:        userID,
+		Title:         blueprint.Title,      
+		Description:   blueprint.Description,
+		IsPublic:      false,
 		DurationWeeks: input.DurationWeeks,
 		Workouts:      planWorkouts,
 	}
 
 	if err := h.Repo.CreatePlan(&newPlan); err != nil {
-		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to save AI plan"})
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to save plan"})
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, Response{Status: "success", Data: newPlan})
+	// 6. Достаем полный план из базы со всеми Preload-вложениями (как мы чинили раньше!)
+	fullPlan, err := h.Repo.GetTrainingPlanByID(planID, userID)
+	if err != nil {
+		writeJSON(w, http.StatusCreated, Response{Status: "success", Data: newPlan})
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, Response{Status: "success", Data: fullPlan})
 }
 
 func (h *PlanHandler) GetAllPlans(w http.ResponseWriter, r *http.Request) {

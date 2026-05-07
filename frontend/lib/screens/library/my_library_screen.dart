@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../services/api_client.dart';
+import '../../services/api_client.dart';
 import 'workout_detail_screen.dart';
+import 'plan_detail_screen.dart';
 
 class MyLibraryScreen extends StatelessWidget {
   const MyLibraryScreen({Key? key}) : super(key: key);
@@ -294,9 +295,12 @@ class _PlansTabState extends State<_PlansTab> {
                       color: Colors.grey,
                     ),
                     onTap: () {
-                      // TODO: Навигация на экран просмотра деталей плана (календарь)
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Скоро: Детали плана!')),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              PlanDetailScreen(planData: plan),
+                        ),
                       );
                     },
                   ),

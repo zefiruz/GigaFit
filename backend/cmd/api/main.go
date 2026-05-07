@@ -86,7 +86,7 @@ func main() {
 	exerciseHandler := handler.NewExerciseHandler(exerciseRepo)
 	workoutHandler := handler.NewWorkoutHandler(workoutrepo, exerciseRepo, aiService)
 	profileHandler := handler.NewProfileHandler(profileRepo)
-	planHandler := handler.NewPlanHandler(planRepo, aiService, exerciseRepo)
+	planHandler := handler.NewPlanHandler(planRepo, aiService, exerciseRepo, workoutrepo)
 	logHandler := handler.NewLogHandler(logRepo, aiService)
 	commHandler := handler.NewCommunityHandler(communityRepo)
 	chatHandler := handler.NewChatHandler(chatRepo, profileRepo, aiService)

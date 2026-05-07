@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/chat_service.dart';
-import '../widgets/theme.dart';
+import '../../services/chat_service.dart';
+import '../../widgets/theme.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});

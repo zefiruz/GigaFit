@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../services/api_client.dart';
+import '../../services/api_client.dart';
 
 class ManualWorkoutBuilderScreen extends StatefulWidget {
   const ManualWorkoutBuilderScreen({Key? key}) : super(key: key);

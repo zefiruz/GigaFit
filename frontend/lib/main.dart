@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Импорты экранов и темы
-import 'screens/login_screen.dart';
-import 'screens/main_screen.dart'; 
+import 'screens/auth/login_screen.dart';
+import 'screens/home/main_screen.dart'; 
 import 'widgets/theme.dart';
 
 void main() async {

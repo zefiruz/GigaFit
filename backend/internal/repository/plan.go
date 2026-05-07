@@ -34,6 +34,9 @@ func (r *postgresTrainingPlanRepository) GetTrainingPlanByID(id uuid.UUID, userI
 	err := r.db.
 		Where("id = ? AND (user_id = ? OR is_public = ?)", id, userID, true).
 		Preload("Workouts").
+		Preload("Workouts.Workout").
+		Preload("Workouts.Workout.Exercises").
+		Preload("Workouts.Workout.Exercises.Exercise").
 		First(&plan).Error
 	if err != nil {
 		return nil, err
@@ -48,6 +51,9 @@ func (r *postgresTrainingPlanRepository) GetAllTrainingPlans(userID uuid.UUID) (
 	err := r.db.
 		Where("user_id = ? OR is_public = ?", userID, true).
 		Preload("Workouts").
+		Preload("Workouts.Workout").
+		Preload("Workouts.Workout.Exercises").
+		Preload("Workouts.Workout.Exercises.Exercise").
 		Find(&plans).Error
 	if err != nil {
 		return nil, err

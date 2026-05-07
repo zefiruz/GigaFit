@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/profile_service.dart';
-import '../services/auth_service.dart';
-import '../widgets/theme.dart';
-import 'login_screen.dart';
+import '../../services/profile_service.dart';
+import '../../services/auth_service.dart';
+import '../../widgets/theme.dart';
+import '../auth/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});

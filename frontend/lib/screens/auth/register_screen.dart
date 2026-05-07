@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // Импортируем наш новый сервис авторизации
-import '../services/auth_service.dart'; 
-import '../widgets/theme.dart';
+import '../../services/auth_service.dart'; 
+import '../../widgets/theme.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});

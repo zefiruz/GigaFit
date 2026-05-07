@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/api_client.dart'; // Не забудь импорт твоего клиента
+import '../../services/api_client.dart'; // Не забудь импорт твоего клиента
 
 class AiWorkoutPreviewScreen extends StatefulWidget {
   final dynamic workoutData;
@@ -32,9 +32,7 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
       canPop: true,
       onPopInvoked: (didPop) {
         if (!_isSaved && workoutId != null) {
-          print('Отмена: физически удаляем черновик DELETE /workout/$workoutId?hard=true');
           
-          // ДОБАВИЛИ ?hard=true ВОТ СЮДА:
           ApiClient().delete('/workout/$workoutId?hard=true');
         }
       },

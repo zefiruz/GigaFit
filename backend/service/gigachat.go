@@ -18,7 +18,7 @@ type GigaChatService interface {
 	GenerateWorkout(userGoal string, availableExercises map[uuid.UUID]string) (*AIWorkoutResponse, error)
 	GenerateAdvice(prompt string) (string, error)
 	SendMessage(messages []map[string]string) (string, error)
-	GeneratePlan(userGoal string, daysPerWeek int, availableExercises map[uuid.UUID]string) (*AIPlanResponse, error)
+	GeneratePlanOrchestrator(userGoal string, daysPerWeek int) (*PlanBlueprint, error)
 }
 
 type gigaChatService struct {
@@ -29,13 +29,19 @@ type gigaChatService struct {
 	mu          sync.RWMutex
 }
 
+type PlanBlueprint struct {
+	Title       string
+	Description string
+	DailyGoals  []string
+}
+
 func NewGigaChatService(authKey string) GigaChatService {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	return &gigaChatService{
 		AuthKey: authKey,
-		Client:  &http.Client{Transport: tr, Timeout: 45 * time.Second}, // Увеличил таймаут для генерации тренировок
+		Client:  &http.Client{Transport: tr, Timeout: 45 * time.Second}, 
 	}
 }
 
@@ -91,7 +97,7 @@ func (s *gigaChatService) GenerateWorkout(userGoal string, availableExercises ma
 	// 1. ОПТИМИЗАЦИЯ: Создаем временный словарь для коротких ID
 	shortToUUID := make(map[int]uuid.UUID)
 	var exercisesContext []string
-	
+
 	counter := 1
 	for id, name := range availableExercises {
 		shortToUUID[counter] = id // Запоминаем, что номеру 1 принадлежит такой-то UUID
@@ -100,22 +106,24 @@ func (s *gigaChatService) GenerateWorkout(userGoal string, availableExercises ma
 		counter++
 	}
 
-	// 2. ОПТИМИЗАЦИЯ: Просим меньше упражнений и используем короткие ID в примере
 	systemPrompt := fmt.Sprintf(
-		"Ты фитнес-тренер. Составь тренировку, выбрав МАКСИМУМ 5-7 упражнений из списка ниже. "+
-			"СПИСОК (ID: Название):\n%s\n\n"+
-			"Ответь СТРОГО в формате JSON:\n"+
-			`{"title": "название", "description": "описание", "exercises": [{"id": 1, "sets": 3, "reps": 12}]}`,
+		"Ты тренер. Составь тренировку, выбрав МАКСИМУМ 5-6 упражнений ТОЛЬКО из списка:\n%s\n\n"+
+			"ПРАВИЛА:\n"+
+			"1. ОТВЕЧАЙ СТРОГО В JSON.\n"+
+			"2. БЕЗ markdown-разметки (никаких ```json).\n"+
+			"3. Ключи и структура должны БУКВАЛЬНО совпадать с шаблоном.\n\n"+
+			"ШАБЛОН ОТВЕТА:\n"+
+			`{"title":"Твоя тренировка","description":"Кратко","exercises":[{"id":1,"sets":3,"reps":12}]}`,
 		strings.Join(exercisesContext, "\n"),
 	)
 
 	payload := map[string]interface{}{
-		"model": "GigaChat",
+		"model":       "GigaChat",
+		"temperature": 0.1,
 		"messages": []map[string]string{
 			{"role": "system", "content": systemPrompt},
-			{"role": "user", "content": fmt.Sprintf("Цель: %s", userGoal)},
+			{"role": "user", "content": userGoal},
 		},
-		"temperature": 0.7,
 	}
 	body, _ := json.Marshal(payload)
 
@@ -146,6 +154,13 @@ func (s *gigaChatService) GenerateWorkout(userGoal string, availableExercises ma
 	aiContent = strings.TrimSuffix(aiContent, "```")
 	aiContent = strings.TrimSpace(aiContent)
 
+	startIndex := strings.Index(aiContent, "{")
+	endIndex := strings.LastIndex(aiContent, "}")
+	if startIndex == -1 || endIndex == -1 {
+		return nil, fmt.Errorf("ИИ не вернул JSON. Ответ: %s", aiContent)
+	}
+	cleanJSON := aiContent[startIndex : endIndex+1]
+
 	// 3. Создаем временную структуру для парсинга, где ID - это int (число)
 	var shortRes struct {
 		Title       string `json:"title"`
@@ -157,7 +172,7 @@ func (s *gigaChatService) GenerateWorkout(userGoal string, availableExercises ma
 		} `json:"exercises"`
 	}
 
-	if err := json.Unmarshal([]byte(aiContent), &shortRes); err != nil {
+	if err := json.Unmarshal([]byte(cleanJSON), &shortRes); err != nil {
 		return nil, fmt.Errorf("ИИ вернул неверный формат: %v", err)
 	}
 
@@ -172,7 +187,7 @@ func (s *gigaChatService) GenerateWorkout(userGoal string, availableExercises ma
 		if !exists {
 			continue // Если ИИ придумал несуществующий номер, просто пропускаем
 		}
-		
+
 		finalRes.Exercises = append(finalRes.Exercises, struct {
 			ID   uuid.UUID `json:"id"`
 			Sets int       `json:"sets"`
@@ -202,10 +217,10 @@ func (s *gigaChatService) GenerateAdvice(prompt string) (string, error) {
 			},
 			{
 				"role":    "user",
-				"content": prompt, 
+				"content": prompt,
 			},
 		},
-		"temperature": 0.7, 
+		"temperature": 0.7,
 	}
 	body, _ := json.Marshal(payload)
 
@@ -282,38 +297,30 @@ func (s *gigaChatService) SendMessage(messages []map[string]string) (string, err
 	return strings.TrimSpace(chatRes.Choices[0].Message.Content), nil
 }
 
-func (s *gigaChatService) GeneratePlan(userGoal string, daysPerWeek int, availableExercises map[uuid.UUID]string) (*AIPlanResponse, error) {
+func (s *gigaChatService) GeneratePlanOrchestrator(userGoal string, daysPerWeek int) (*PlanBlueprint, error) {
 	token, err := s.getAccessToken()
 	if err != nil {
 		return nil, err
 	}
 
-	// 1. ОПТИМИЗАЦИЯ: Временный словарь для коротких ID
-	shortToUUID := make(map[int]uuid.UUID)
-	var exercisesContext []string
-
-	counter := 1
-	for id, name := range availableExercises {
-		shortToUUID[counter] = id
-		exercisesContext = append(exercisesContext, fmt.Sprintf("%d: %s", counter, name))
-		counter++
-	}
-
-	// 2. Системный промпт просит план и использует короткие ID
+	// 1. Просим ИИ вернуть Название, Описание и список дней в виде обычного текста
 	systemPrompt := fmt.Sprintf(
-		"Ты фитнес-тренер. Составь план тренировок на %d дня(ей) в неделю. Выбирай МАКСИМУМ по 5-6 упражнений на день ТОЛЬКО из списка:\n%s\n\n"+
-			"Ответь СТРОГО в формате JSON:\n"+
-			`{"title": "Название плана", "description": "Описание", "workouts": [{"day_number": 1, "title": "День 1", "exercises": [{"id": 1, "sets": 3, "reps": 12}]}]}`,
-		daysPerWeek, strings.Join(exercisesContext, "\n"),
+		"Ты элитный фитнес-тренер. Клиент хочет: '%s'. Разбей эту цель на %d тренировок.\n"+
+			"ОТВЕЧАЙ СТРОГО В ТАКОМ ФОРМАТЕ (каждый пункт с новой строки, без markdown и без JSON):\n"+
+			"Название: [Придумай крутое, цепляющее название плану]\n"+
+			"Описание: [Напиши 1-2 мотивирующих предложения о плане]\n"+
+			"Тренировка: [Фокус 1]\n"+
+			"Тренировка: [Фокус 2]",
+		userGoal, daysPerWeek,
 	)
 
 	payload := map[string]interface{}{
-		"model": "GigaChat",
+		"model":       "GigaChat",
+		"temperature": 0.5, // Немного даем креатива для придумывания названия
 		"messages": []map[string]string{
 			{"role": "system", "content": systemPrompt},
-			{"role": "user", "content": fmt.Sprintf("Цель плана: %s", userGoal)},
+			{"role": "user", "content": "Сгенерируй структуру плана"},
 		},
-		"temperature": 0.7,
 	}
 	body, _ := json.Marshal(payload)
 
@@ -336,80 +343,52 @@ func (s *gigaChatService) GeneratePlan(userGoal string, daysPerWeek int, availab
 	}
 
 	if err := json.NewDecoder(res.Body).Decode(&chatRes); err != nil || len(chatRes.Choices) == 0 {
-		return nil, fmt.Errorf("ошибка парсинга ответа GigaChat")
+		return nil, fmt.Errorf("ошибка ответа GigaChat")
 	}
 
 	aiContent := chatRes.Choices[0].Message.Content
-	aiContent = strings.TrimPrefix(aiContent, "```json")
-	aiContent = strings.TrimSuffix(aiContent, "```")
-	aiContent = strings.TrimSpace(aiContent)
 
-	// 3. Создаем временную структуру, которая зеркалит AIPlanResponse, но ID здесь типа int
-	var shortRes struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		Workouts    []struct {
-			DayNumber int    `json:"day_number"`
-			Title     string `json:"title"`
-			Exercises []struct {
-				ID   int `json:"id"` // <-- Тут число!
-				Sets int `json:"sets"`
-				Reps int `json:"reps"`
-			} `json:"exercises"`
-		} `json:"workouts"`
-	}
+	// 2. ПАРСИНГ ОБЫЧНОГО ТЕКСТА
+	lines := strings.Split(aiContent, "\n")
+	blueprint := &PlanBlueprint{}
 
-	if err := json.Unmarshal([]byte(aiContent), &shortRes); err != nil {
-		return nil, fmt.Errorf("ИИ вернул неверный формат JSON: %v", err)
-	}
-
-	// 4. Собираем финальный ответ правильного типа (AIPlanResponse)
-	var finalRes AIPlanResponse
-	finalRes.Title = shortRes.Title
-	finalRes.Description = shortRes.Description
-
-	// Проходимся по каждой тренировке в плане
-	for _, w := range shortRes.Workouts {
-		// Подготавливаем массив упражнений для текущей тренировки
-		var finalExercises []struct {
-			ID   uuid.UUID `json:"id"`
-			Sets int       `json:"sets"`
-			Reps int       `json:"reps"`
+	for _, line := range lines {
+		cleanLine := strings.TrimSpace(line)
+		if cleanLine == "" {
+			continue
 		}
 
-		// Проходимся по упражнениям и меняем int на UUID
-		for _, ex := range w.Exercises {
-			realUUID, exists := shortToUUID[ex.ID]
-			if !exists {
-				continue // Пропускаем галлюцинации ИИ
-			}
-			finalExercises = append(finalExercises, struct {
-				ID   uuid.UUID `json:"id"`
-				Sets int       `json:"sets"`
-				Reps int       `json:"reps"`
-			}{
-				ID:   realUUID,
-				Sets: ex.Sets,
-				Reps: ex.Reps,
-			})
+		// Вытаскиваем Название
+		if strings.HasPrefix(cleanLine, "Название:") {
+			blueprint.Title = strings.TrimSpace(strings.TrimPrefix(cleanLine, "Название:"))
+			continue
 		}
 
-		// Добавляем тренировку в финальный план
-		finalRes.Workouts = append(finalRes.Workouts, struct {
-			DayNumber int    `json:"day_number"`
-			Title     string `json:"title"`
-			Exercises []struct {
-				ID   uuid.UUID `json:"id"`
-				Sets int       `json:"sets"`
-				Reps int       `json:"reps"`
-			} `json:"exercises"`
-		}{
-			DayNumber: w.DayNumber,
-			Title:     w.Title,
-			Exercises: finalExercises, // Кладем сконвертированные упражнения
-		})
+		// Вытаскиваем Описание
+		if strings.HasPrefix(cleanLine, "Описание:") {
+			blueprint.Description = strings.TrimSpace(strings.TrimPrefix(cleanLine, "Описание:"))
+			continue
+		}
+
+		// Все остальное считаем днями тренировок (чистим от лишних слов в начале)
+		cleanGoal := strings.TrimLeft(cleanLine, "1234567890.- ТренировкаДень: ")
+		if cleanGoal != "" {
+			blueprint.DailyGoals = append(blueprint.DailyGoals, cleanGoal)
+		}
 	}
 
-	// Теперь всё совпадает, возвращаем указатель на план!
-	return &finalRes, nil
+	// Страховка (если ИИ почему-то не придумал название)
+	if blueprint.Title == "" {
+		blueprint.Title = "План: " + userGoal
+	}
+	if blueprint.Description == "" {
+		blueprint.Description = "Сгенерировано умным помощником GigaFit."
+	}
+
+	// Обрезаем массив, если ИИ "перестарался" и выдал больше дней
+	if len(blueprint.DailyGoals) > daysPerWeek {
+		blueprint.DailyGoals = blueprint.DailyGoals[:daysPerWeek]
+	}
+
+	return blueprint, nil
 }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'profile_screen.dart';
-import 'chat_screen.dart';
-import 'workout_builder_screen.dart';
-import 'my_library_screen.dart';
+import '../profile/profile_screen.dart';
+import '../chat/chat_screen.dart';
+import '../constructor/workout_builder_screen.dart';
+import '../library/my_library_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
