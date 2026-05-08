@@ -1,0 +1,11 @@
+meta:
+  environment: golang
+  toolchain:
+    name: go
+    version: "1.22"
+build:
+  context: backend
+run:
+  command: ./app 
+  containerPort: "8080"
+  servicePort: "80"
