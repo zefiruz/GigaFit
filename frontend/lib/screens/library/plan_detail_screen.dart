@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/theme.dart';
 import 'workout_detail_screen.dart';
 
 class PlanDetailScreen extends StatelessWidget {
@@ -8,18 +9,15 @@ class PlanDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Безопасно достаем данные плана
+    // Безопасный парсинг данных
     final safeData = planData ?? {};
     final title = safeData['title'] ?? safeData['Title'] ?? 'План тренировок';
-    final description =
-        safeData['description'] ?? safeData['Description'] ?? '';
-    final duration =
-        safeData['duration_weeks'] ?? safeData['DurationWeeks'] ?? 4;
+    final description = safeData['description'] ?? safeData['Description'] ?? '';
+    final duration = safeData['duration_weeks'] ?? safeData['DurationWeeks'] ?? 4;
 
-    // Достаем массив связок "План-Тренировка"
     List workouts = safeData['workouts'] ?? safeData['Workouts'] ?? [];
 
-    // Сортируем тренировки по неделям и дням, чтобы они шли по порядку!
+    // Сортировка по порядку
     workouts.sort((a, b) {
       int weekA = a['week_number'] ?? a['WeekNumber'] ?? 1;
       int weekB = b['week_number'] ?? b['WeekNumber'] ?? 1;
@@ -31,33 +29,27 @@ class PlanDetailScreen extends StatelessWidget {
       return weekA.compareTo(weekB);
     });
 
-    const primaryGreen = Color(0xFF00E676);
-    const cardColor = Color(0xFF1E1E1E);
-    const bgColor = Color(0xFF121212);
-
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
           'Детали плана',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 20),
         ),
-        backgroundColor: bgColor,
+        backgroundColor: AppColors.background,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Шапка плана
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.purpleAccent.withOpacity(0.3),
-              ), // Планы у нас фиолетовые
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.system.withOpacity(0.3)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,22 +59,22 @@ class PlanDetailScreen extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 Text(
                   'Длительность: $duration нед.',
                   style: const TextStyle(
-                    color: primaryGreen,
-                    fontWeight: FontWeight.bold,
+                    color: AppColors.system,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 if (description.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
                     description,
-                    style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
                   ),
                 ],
               ],
@@ -91,11 +83,7 @@ class PlanDetailScreen extends StatelessWidget {
           const SizedBox(height: 24),
           const Text(
             'Расписание:',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
           ),
           const SizedBox(height: 16),
 
@@ -103,67 +91,41 @@ class PlanDetailScreen extends StatelessWidget {
             const Center(
               child: Padding(
                 padding: EdgeInsets.all(20.0),
-                child: Text(
-                  'В плане пока нет тренировок',
-                  style: TextStyle(color: Colors.grey),
-                ),
+                child: Text('В плане пока нет тренировок', style: TextStyle(color: AppColors.textSecondary)),
               ),
             ),
 
-          // Выводим отсортированный список дней
           ...workouts.map((w) {
             final week = w['week_number'] ?? w['WeekNumber'] ?? 1;
             final day = w['day_number'] ?? w['DayNumber'] ?? 1;
-
-            // ИСПРАВЛЕНИЕ: Добавили 'workout_info' на первое место
-            final actualWorkout =
-                w['workout_info'] ?? w['workout'] ?? w['Workout'] ?? w;
-
-            final workoutTitle =
-                actualWorkout['title'] ??
-                actualWorkout['Title'] ??
-                'Тренировка';
+            final actualWorkout = w['workout_info'] ?? w['workout'] ?? w['Workout'] ?? w;
+            final workoutTitle = actualWorkout['title'] ?? actualWorkout['Title'] ?? 'Тренировка';
 
             return Card(
-              color: cardColor,
+              color: AppColors.card,
               margin: const EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 leading: CircleAvatar(
-                  backgroundColor: Colors.purpleAccent.withOpacity(0.2),
+                  backgroundColor: AppColors.system.withOpacity(0.15),
                   child: Text(
                     '$day',
-                    style: const TextStyle(
-                      color: Colors.purpleAccent,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const TextStyle(color: AppColors.system, fontWeight: FontWeight.bold),
                   ),
                 ),
                 title: Text(
                   workoutTitle,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
                 ),
-                subtitle: Text(
-                  'Неделя $week',
-                  style: TextStyle(color: Colors.grey[400]),
-                ),
-                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                subtitle: Text('Неделя $week', style: const TextStyle(color: AppColors.textSecondary)),
+                trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
                 onTap: () {
-                  // Передаем правильный объект тренировки
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) =>
-                          WorkoutDetailScreen(workoutData: actualWorkout),
+                      builder: (context) => WorkoutDetailScreen(workoutData: actualWorkout),
                     ),
                   );
                 },

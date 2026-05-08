@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/theme.dart';
 
 class WorkoutDetailScreen extends StatelessWidget {
   final dynamic workoutData;
@@ -11,52 +12,71 @@ class WorkoutDetailScreen extends StatelessWidget {
     // Безопасно достаем данные
     final safeData = workoutData ?? {};
     final title = safeData['title'] ?? safeData['Title'] ?? 'Тренировка';
-    final description =
-        safeData['description'] ?? safeData['Description'] ?? '';
+    final description = safeData['description'] ?? safeData['Description'] ?? '';
     final List exercises = safeData['exercises'] ?? safeData['Exercises'] ?? [];
-
-    const primaryGreen = Color(0xFF00E676);
-    const cardColor = Color(0xFF1E1E1E);
+    final bool isAi = safeData['is_ai_generated'] ?? false;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
           'Детали тренировки',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(
+            color: AppColors.textPrimary, 
+            fontWeight: FontWeight.w600, 
+            fontSize: 20
+          ),
         ),
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: AppColors.background,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        // Можно добавить иконку корзины прямо сюда на будущее
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Шапка
+          // Шапка тренировки
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: primaryGreen.withOpacity(0.3)),
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: (isAi ? AppColors.primary : AppColors.personal).withOpacity(0.3)
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                Row(
+                  children: [
+                    Icon(
+                      isAi ? Icons.auto_awesome : Icons.sports_gymnastics,
+                      color: isAi ? AppColors.primary : AppColors.personal,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 if (description.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Text(
                     description,
-                    style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary, 
+                      fontSize: 14,
+                      height: 1.4
+                    ),
                   ),
                 ],
               ],
@@ -64,16 +84,16 @@ class WorkoutDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           const Text(
-            'Программа:',
+            'Программа упражнений:',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 16),
 
-          // Список упражнений (такой же красивый, как в предпросмотре)
+          // Список упражнений
           ...exercises.map((ex) {
             final info = ex['exercise_info'] ?? ex['exercise'] ?? {};
             final exName = info['name'] ?? 'Упражнение';
@@ -86,80 +106,78 @@ class WorkoutDetailScreen extends StatelessWidget {
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: cardColor,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.surface),
               ),
               child: Theme(
-                data: Theme.of(
-                  context,
-                ).copyWith(dividerColor: Colors.transparent),
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                 child: ExpansionTile(
-                  iconColor: primaryGreen,
-                  collapsedIconColor: Colors.grey,
+                  iconColor: AppColors.primary,
+                  collapsedIconColor: AppColors.textSecondary,
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.fitness_center,
-                      color: primaryGreen,
+                      color: isAi ? AppColors.primary : AppColors.personal,
                     ),
                   ),
                   title: Text(
                     exName,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   subtitle: Text(
                     '$sets подхода по $reps повторений',
-                    style: TextStyle(color: Colors.grey[400], fontSize: 13),
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                   ),
                   children: [
                     Padding(
-                      padding: const EdgeInsets.only(
-                        left: 20,
-                        right: 20,
-                        bottom: 20,
-                      ),
+                      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Divider(color: Colors.white10),
+                          const Divider(color: AppColors.surface),
                           const SizedBox(height: 8),
                           const Text(
-                            'ТЕХНИКА:',
+                            'ТЕХНИКА ВЫПОЛНЕНИЯ:',
                             style: TextStyle(
-                              color: primaryGreen,
-                              fontSize: 12,
+                              color: AppColors.primary,
+                              fontSize: 11,
                               fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             exDesc,
                             style: const TextStyle(
-                              color: Colors.white70,
+                              color: AppColors.textPrimary,
                               fontSize: 14,
-                              height: 1.4,
+                              height: 1.5,
                             ),
                           ),
                           const SizedBox(height: 16),
                           if (muscleGroups['primary'] != null) ...[
                             const Text(
-                              'РАБОЧИЕ МЫШЦЫ:',
+                              'ЦЕЛЕВЫЕ МЫШЦЫ:',
                               style: TextStyle(
-                                color: primaryGreen,
-                                fontSize: 12,
+                                color: AppColors.primary,
+                                fontSize: 11,
                                 fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
                               ),
                             ),
                             const SizedBox(height: 8),
                             Wrap(
                               spacing: 6,
+                              runSpacing: 6,
                               children: (muscleGroups['primary'] as List)
                                   .map((m) => _buildMuscleChip(m.toString()))
                                   .toList(),
@@ -174,33 +192,33 @@ class WorkoutDetailScreen extends StatelessWidget {
             );
           }).toList(),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
 
-          // Логичная кнопка для сохраненной тренировки
+          // Кнопка начала тренировки
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              backgroundColor: primaryGreen,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white, // Белый текст для строгости
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
               ),
+              elevation: 0,
             ),
             onPressed: () {
-              // TODO: Переход на экран режима активной тренировки (плеер тренировки)
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text(
-                    'Скоро: Режим активной тренировки! Погнали! 🔥',
-                  ),
+                  content: Text('Режим активной тренировки скоро появится! 🔥'),
+                  backgroundColor: AppColors.primaryDark,
                 ),
               );
             },
             child: const Text(
-              'Начать тренировку',
+              'НАЧАТЬ ТРЕНИРОВКУ',
               style: TextStyle(
-                color: Colors.black,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
               ),
             ),
           ),
@@ -212,15 +230,19 @@ class WorkoutDetailScreen extends StatelessWidget {
 
   Widget _buildMuscleChip(String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF00E676).withOpacity(0.1),
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF00E676).withOpacity(0.3)),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
       ),
       child: Text(
         label,
-        style: const TextStyle(color: Colors.white, fontSize: 11),
+        style: const TextStyle(
+          color: AppColors.textPrimary, 
+          fontSize: 11,
+          fontWeight: FontWeight.w500
+        ),
       ),
     );
   }

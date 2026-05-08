@@ -40,7 +40,6 @@ func (r *postgresWorkoutRepository) CreateWorkout(workout *models.Workout) error
 func (r *postgresWorkoutRepository) GetWorkoutByID(id uuid.UUID) (*models.Workout, error) {
 	var workout models.Workout
 
-	// Используем Preload для загрузки вложенных связей
 	err := r.db.
 		Preload("Exercises").
 		Preload("Exercises.Exercise").
@@ -67,7 +66,7 @@ func (r *postgresWorkoutRepository) GetAllWorkouts(userID uuid.UUID) ([]models.W
 
 	err := r.db.
 		Preload("Exercises").
-		Preload("Exercises.Exercise"). // То же самое здесь
+		Preload("Exercises.Exercise").
 		Where("user_id = ?", userID).
 		Find(&workouts).Error
 

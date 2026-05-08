@@ -32,6 +32,21 @@ class PlanService {
     }
   }
 
+   Future<List<dynamic>> getAllSystemPlans() async {
+    try {
+      final response = await _client.get('/plan/system');
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['data'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      print('--- [HTTP] Ошибка при получении планов: $e ---');
+      return [];
+    }
+  }
+
   // --- 3. ПОЛУЧИТЬ ПЛАН ПО ID ---
   Future<Map<String, dynamic>?> getPlanById(String id) async {
     try {
@@ -60,12 +75,14 @@ class PlanService {
   }
 
   // --- 5. УДАЛИТЬ ПЛАН ---
-  Future<bool> deletePlan(String id) async {
+  Future<bool> deletePlan(String id, {bool hard = false}) async {
     try {
-      final response = await _client.delete('/plan/$id');
+      final endpoint = hard ? '/plan/$id?hard=true' : '/plan/$id';
+      final response = await _client.delete(endpoint);
+
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
-      print('--- [HTTP] Ошибка при удалении плана: $e ---');
+      print('Сетевая ошибка deletePlan: $e');
       return false;
     }
   }

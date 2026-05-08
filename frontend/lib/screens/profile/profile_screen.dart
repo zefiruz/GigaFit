@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fl_chart/fl_chart.dart';
+
 import '../../services/profile_service.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/theme.dart';
@@ -18,7 +20,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Map<String, dynamic>? _profileData;
   List<double> _weightHistory = [];
-  bool _isInitialLoad = true; // Заменили _isLoading на _isInitialLoad
+  bool _isInitialLoad = true;
 
   @override
   void initState() {
@@ -27,12 +29,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadAllData() async {
-    // Включаем полноэкранную загрузку ТОЛЬКО при первом входе
     if (_profileData == null) {
       setState(() => _isInitialLoad = true);
     }
 
-    // Загружаем профиль и историю веса параллельно
     final results = await Future.wait([
       _profileService.getProfile(),
       _profileService.getProgress(),
@@ -42,14 +42,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _profileData = results[0] as Map<String, dynamic>?;
 
-        // --- 100% БЕЗОПАСНЫЙ ПАРСИНГ ГРАФИКА ---
-        final dynamic progressData =
-            results[1]; // Используем dynamic, чтобы Flutter не ругался на типы заранее
+        final dynamic progressData = results[1];
         _weightHistory = [];
 
-        // Сначала проверяем, что данные вообще пришли (не null)
         if (progressData != null) {
-          // Проверяем, является ли это списком (массивом)
           if (progressData is List) {
             for (var item in progressData) {
               if (item is Map && item['weight'] != null) {
@@ -60,10 +56,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _weightHistory.add(double.tryParse(item.toString()) ?? 0.0);
               }
             }
-          }
-          // Проверяем, является ли это словарем (Map)
-          else if (progressData is Map) {
-            // Безопасно проверяем ключ
+          } else if (progressData is Map) {
             if (progressData['weight_history'] != null) {
               final historyList = progressData['weight_history'];
               if (historyList is List) {
@@ -80,7 +73,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Вызов шторки редактирования
   void _showEditSheet() {
     final weightValue = _profileData?['current_weight'] ?? '';
     final heightValue = _profileData?['current_height'] ?? '';
@@ -117,16 +109,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: GoogleFonts.poppins(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 20),
+
+            // Фирменные инпуты
             TextField(
               controller: weightController,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              decoration: const InputDecoration(labelText: 'Вес (кг)'),
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _inputStyle('Вес (кг)'),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -134,18 +129,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              decoration: const InputDecoration(labelText: 'Рост (см)'),
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _inputStyle('Рост (см)'),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: goalController,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Цель (например: Набор массы)',
-              ),
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: _inputStyle('Цель (например: Набор массы)'),
             ),
             const SizedBox(height: 24),
+
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: () async {
                 FocusScope.of(context).unfocus();
 
@@ -161,12 +165,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     0;
                 final parsedGoal = goalController.text.trim();
 
-                // Проверка как на твоем Go-бэкенде!
                 if (parsedWeight <= 0 || parsedHeight <= 0) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Вес и рост должны быть больше нуля'),
-                      backgroundColor: Colors.orange,
+                      backgroundColor: AppColors.error,
                     ),
                   );
                   return;
@@ -175,7 +178,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Пожалуйста, укажите вашу цель'),
-                      backgroundColor: Colors.orange,
+                      backgroundColor: AppColors.error,
                     ),
                   );
                   return;
@@ -194,12 +197,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Ошибка сервера. Попробуйте еще раз.'),
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppColors.error,
                     ),
                   );
                 }
               },
-              child: const Text('Сохранить'),
+              child: const Text(
+                'Сохранить',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
             ),
             const SizedBox(height: 24),
           ],
@@ -208,48 +214,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // БЕЗОПАСНАЯ ПРОВЕРКА ДАННЫХ
+  // Фирменный стиль полей
+  InputDecoration _inputStyle(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: AppColors.textSecondary),
+      filled: true,
+      fillColor: AppColors.surface,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+      ),
+    );
+  }
+
   bool _checkIfDataMissing() {
     if (_profileData == null) return true;
     if (_profileData!['current_weight'] == null) return true;
 
-    // Превращаем то, что прислал Go (string, int, double) в Double
-    final weight = double.tryParse(_profileData!['current_weight'].toString()) ?? 0.0;
-    return weight <= 0; // Если вес 0 или меньше, значит данные не заполнены
+    final weight =
+        double.tryParse(_profileData!['current_weight'].toString()) ?? 0.0;
+    return weight <= 0;
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isInitialLoad) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
     }
 
     final bool isDataMissing = _checkIfDataMissing();
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('GIGAFIT PRO'),
+        title: const Text(
+          'Профиль',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: AppColors.background,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: AppColors.error),
             onPressed: () async {
               await _authService.logout();
-              if (mounted)
+              if (mounted) {
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(builder: (context) => const LoginScreen()),
                 );
+              }
             },
           ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _loadAllData, // Теперь это работает плавно!
+        onRefresh: _loadAllData,
         color: AppColors.primary,
-        backgroundColor: AppColors.card,
+        backgroundColor: AppColors.surface,
         child: SingleChildScrollView(
-          physics:
-              const AlwaysScrollableScrollPhysics(), // Важно для работы RefreshIndicator
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             children: [
@@ -259,7 +296,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildStatsRow(),
               const SizedBox(height: 30),
 
-              // Динамическая кнопка
               isDataMissing
                   ? _buildBigButton("Заполнить данные", true)
                   : _buildBigButton("Редактировать профиль", false),
@@ -288,7 +324,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           child: CircleAvatar(
             radius: 45,
-            backgroundColor: AppColors.card,
+            backgroundColor: AppColors.surface,
             child: Text(
               initial,
               style: const TextStyle(
@@ -302,7 +338,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 12),
         Text(
           name,
-          style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold),
+          style: GoogleFonts.poppins(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
         ),
         Text(
           _profileData?['email']?.toString() ?? '',
@@ -313,7 +353,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildStatsRow() {
-    // Теперь используем правильные ключи: current_weight и current_height
     final weight = _profileData?['current_weight'] ?? '--';
     final height = _profileData?['current_height'] ?? '--';
     final goal = _profileData?['goal'] ?? '';
@@ -335,10 +374,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _statCard(String label, String value, String unit) {
     return Container(
       width: MediaQuery.of(context).size.width * 0.28,
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withOpacity(0.1)),
       ),
       child: Column(
         children: [
@@ -349,17 +389,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
               fontSize: 12,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
+              Flexible(
+                child: Text(
+                  value,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
               if (unit.isNotEmpty)
@@ -381,98 +424,174 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return SizedBox(
       width: double.infinity,
       child: isPrimary
-          ? ElevatedButton(onPressed: _showEditSheet, child: Text(text))
+          ? ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              onPressed: _showEditSheet,
+              child: Text(
+                text,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            )
           : OutlinedButton(
               onPressed: _showEditSheet,
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: AppColors.primary),
                 foregroundColor: AppColors.primary,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
-              child: Text(text),
+              child: Text(
+                text,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
     );
   }
 
+  // --- МАГИЯ FL_CHART ЗДЕСЬ ---
   Widget _buildProgressChart() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          "Прогресс веса",
-          style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
+          "Динамика веса",
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
         ),
         const SizedBox(height: 20),
         Container(
-          height: 180,
+          height: 220,
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.only(
+            right: 20,
+            left: 10,
+            top: 24,
+            bottom: 10,
+          ),
           decoration: BoxDecoration(
             color: AppColors.card,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.primary.withOpacity(0.1)),
           ),
           child: _weightHistory.length < 2
               ? const Center(
                   child: Text(
-                    "Недостаточно данных для графика",
+                    "Добавьте вес хотя бы 2 раза,\nчтобы увидеть график",
+                    textAlign: TextAlign.center,
                     style: TextStyle(color: AppColors.textSecondary),
                   ),
                 )
-              : CustomPaint(painter: WeightChartPainter(_weightHistory)),
+              : LineChart(
+                  LineChartData(
+                    gridData: FlGridData(show: false), // Прячем скучную сетку
+                    titlesData: FlTitlesData(
+                      show: true,
+                      topTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      rightTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      // Оставляем только значения веса слева
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 40,
+                          getTitlesWidget: (value, meta) {
+                            return Text(
+                              value.toInt().toString(),
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    borderData: FlBorderData(
+                      show: false,
+                    ), // Прячем рамки графика
+                    lineBarsData: [
+                      LineChartBarData(
+                        // Превращаем массив веса в точки (X, Y)
+                        spots: _weightHistory.asMap().entries.map((e) {
+                          return FlSpot(e.key.toDouble(), e.value);
+                        }).toList(),
+                        isCurved: true, // Плавные изгибы!
+                        color: AppColors.primary,
+                        barWidth: 3,
+                        isStrokeCapRound: true,
+                        dotData: FlDotData(
+                          show: true, // Показываем точки на графике
+                          getDotPainter: (spot, percent, barData, index) {
+                            return FlDotCirclePainter(
+                              radius: 4,
+                              color: AppColors.background,
+                              strokeWidth: 2,
+                              strokeColor: AppColors.primary,
+                            );
+                          },
+                        ),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          // Роскошный градиент под линией
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColors.primary.withOpacity(0.3),
+                              Colors.transparent,
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                        ),
+                      ),
+                    ],
+                    // Интерактивные подсказки при нажатии
+                    lineTouchData: LineTouchData(
+                      touchTooltipData: LineTouchTooltipData(
+                        getTooltipColor: (LineBarSpot touchedSpot) =>
+                            AppColors.surface,
+
+                        tooltipBorderRadius: BorderRadius.circular(12),
+
+                        tooltipPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+
+                        getTooltipItems: (touchedSpots) {
+                          return touchedSpots.map((spot) {
+                            return LineTooltipItem(
+                              '${spot.y} кг',
+                              const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            );
+                          }).toList();
+                        },
+                      ),
+                    ),
+                  ),
+                ),
         ),
       ],
     );
   }
-}
-
-// РИСОВАЛЬЩИК ГРАФИКА
-class WeightChartPainter extends CustomPainter {
-  final List<double> data;
-  WeightChartPainter(this.data);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (data.length < 2) return;
-
-    final paint = Paint()
-      ..color = AppColors.primary
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [AppColors.primary.withOpacity(0.3), Colors.transparent],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-
-    final path = Path();
-    double maxW = data.reduce((a, b) => a > b ? a : b) + 5;
-    double minW = data.reduce((a, b) => a < b ? a : b) - 5;
-    double range = maxW - minW;
-    if (range == 0)
-      range = 1; // Предотвращаем деление на ноль, если вес не менялся
-
-    for (int i = 0; i < data.length; i++) {
-      double x = (size.width / (data.length - 1)) * i;
-      double y = size.height - ((data[i] - minW) / range) * size.height;
-      if (i == 0)
-        path.moveTo(x, y);
-      else
-        path.lineTo(x, y);
-    }
-
-    final fillPath = Path.from(path)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(fillPath, fillPaint);
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

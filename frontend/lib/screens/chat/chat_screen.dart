@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/chat_service.dart';
 import '../../widgets/theme.dart';
@@ -51,7 +50,6 @@ class _ChatScreenState extends State<ChatScreen> {
       if (item['prompt'] != null) {
         tempMessages.add({'text': item['prompt'], 'sender': 'user'});
       }
-      // В твоем Go-коде ответ лежит в Response.Data["text"]
       if (item['response'] != null && item['response']['text'] != null) {
         tempMessages.add({'text': item['response']['text'], 'sender': 'ai'});
       }
@@ -92,7 +90,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
 
     if (mounted && result != null) {
-      // Если это был новый чат, сохраняем полученный от бэкенда ID
       if (_currentSessionId == null && result['session_id'] != null) {
         _currentSessionId = result['session_id'];
         final prefs = await SharedPreferences.getInstance();
@@ -104,6 +101,8 @@ class _ChatScreenState extends State<ChatScreen> {
         _messages.add({'text': result['reply'], 'sender': 'ai'});
       });
       _scrollToBottom();
+    } else {
+      setState(() => _isAITyping = false);
     }
   }
 
@@ -119,6 +118,19 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  // Строгий стиль инпутов, как на остальных экранах
+  InputDecoration _inputStyle(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: AppColors.textSecondary),
+      filled: true,
+      fillColor: AppColors.background,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+    );
+  }
+
   void _showAdviceSheet() {
     int duration = 60;
     String mood = 'Хорошее';
@@ -127,67 +139,83 @@ class _ChatScreenState extends State<ChatScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.card,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => StatefulBuilder( // StatefulBuilder нужен, чтобы менять состояние внутри шторки
+      backgroundColor: AppColors.surface, // Темно-серый строгий фон
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => StatefulBuilder(
         builder: (context, setSheetState) {
           return Padding(
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(context).viewInsets.bottom,
-              left: 24, right: 24, top: 24,
+              left: 20, right: 20, top: 24,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Анализ тренировки', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                const SizedBox(height: 16),
+                const Text('Анализ тренировки', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                const SizedBox(height: 24),
                 
                 // Ползунок времени
-                Text('Длительность: $duration мин.', style: const TextStyle(color: Colors.white70)),
+                Text('Длительность: $duration мин.', style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
                 Slider(
                   value: duration.toDouble(),
                   min: 10, max: 180, divisions: 17,
                   activeColor: AppColors.primary,
+                  inactiveColor: AppColors.background,
                   onChanged: (val) => setSheetState(() => duration = val.toInt()),
                 ),
+                const SizedBox(height: 16),
                 
                 // Выбор настроения
-                const Text('Самочувствие:', style: TextStyle(color: Colors.white70)),
-                const SizedBox(height: 8),
+                const Text('Самочувствие:', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
+                  runSpacing: 8,
                   children: ['🔥 Отличное', '👍 Нормальное', '😫 Устал'].map((m) {
                     final isSelected = mood == m;
                     return ChoiceChip(
                       label: Text(m),
                       selected: isSelected,
-                      selectedColor: AppColors.primary,
-                      backgroundColor: AppColors.surface,
-                      labelStyle: TextStyle(color: isSelected ? Colors.black : Colors.white),
+                      selectedColor: AppColors.primary.withOpacity(0.2),
+                      backgroundColor: AppColors.background,
+                      showCheckmark: false,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(color: isSelected ? AppColors.primary : Colors.transparent),
+                      ),
+                      labelStyle: TextStyle(
+                        color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
                       onSelected: (val) => setSheetState(() => mood = m),
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
-                // Комментарий
+                // Комментарий (используем нашу премиум-форму)
                 TextField(
                   controller: commentController,
-                  decoration: const InputDecoration(labelText: 'Краткий комментарий (что делали?)'),
+                  style: const TextStyle(color: AppColors.textPrimary),
+                  decoration: _inputStyle('Краткий комментарий (что делали?)'),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
 
                 // Кнопка отправки
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white, // Белый текст
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                   onPressed: () async {
-                    Navigator.pop(context); // Закрываем шторку
+                    Navigator.pop(context);
                     
-                    // Показываем индикатор печати в чате
                     setState(() => _isAITyping = true);
                     _scrollToBottom();
 
-                    // Идем в сеть за советом
                     final advice = await _chatService.getWorkoutAdvice(
                       duration, mood, commentController.text.trim(),
                     );
@@ -204,9 +232,9 @@ class _ChatScreenState extends State<ChatScreen> {
                       _scrollToBottom();
                     }
                   },
-                  child: const Text('Получить совет'),
+                  child: const Text('Получить совет', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
               ],
             ),
           );
@@ -218,12 +246,18 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('AI Тренер'),
+        title: const Text('AI Тренер', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 20)),
+        centerTitle: true,
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
         actions: [
           IconButton(
             icon: const Icon(Icons.add_comment_outlined, color: AppColors.primary),
             onPressed: _startNewChat,
+            tooltip: 'Новый чат',
           ),
         ],
       ),
@@ -231,7 +265,7 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                 : _messages.isEmpty
                     ? _buildWelcomeMessage()
                     : ListView.builder(
@@ -243,15 +277,17 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           if (_isAITyping) _buildTypingIndicator(),
           
-          // НОВАЯ КНОПКА БЫСТРОГО ДЕЙСТВИЯ
+          // Кнопка быстрого действия
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Align(
               alignment: Alignment.centerLeft,
               child: ActionChip(
-                avatar: const Icon(Icons.bolt, color: Colors.black, size: 16),
-                label: const Text('Совет после тренировки', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                avatar: const Icon(Icons.bolt, color: Colors.white, size: 18),
+                label: const Text('Совет после тренировки', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                 backgroundColor: AppColors.primary,
+                side: BorderSide.none,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 onPressed: _showAdviceSheet,
               ),
             ),
@@ -268,11 +304,12 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.bolt, size: 64, color: AppColors.primary.withOpacity(0.5)),
+          Icon(Icons.bolt, size: 72, color: AppColors.primary.withOpacity(0.2)),
           const SizedBox(height: 16),
-          Text(
-            'Задай любой вопрос по тренировкам',
-            style: TextStyle(color: AppColors.textSecondary),
+          const Text(
+            'Задай любой вопрос\nпо фитнесу или питанию',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
           ),
         ],
       ),
@@ -281,23 +318,32 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildBubble(Map<String, dynamic> msg) {
     bool isUser = msg['sender'] == 'user';
+    bool isSystem = msg['sender'] == 'system';
+
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
+        margin: const EdgeInsets.symmetric(vertical: 6),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.8, // Баббл не будет растягиваться на весь экран
+        ),
         decoration: BoxDecoration(
-          color: isUser ? AppColors.primary : AppColors.card,
+          color: isSystem 
+              ? AppColors.error.withOpacity(0.2) 
+              : (isUser ? AppColors.primary : AppColors.card),
           borderRadius: BorderRadius.circular(16).copyWith(
-            bottomRight: isUser ? const Radius.circular(0) : null,
-            bottomLeft: !isUser ? const Radius.circular(0) : null,
+            bottomRight: isUser ? const Radius.circular(4) : null, // Аккуратный хвостик
+            bottomLeft: !isUser ? const Radius.circular(4) : null,
           ),
+          border: isSystem ? Border.all(color: AppColors.error.withOpacity(0.5)) : null,
         ),
         child: Text(
           msg['text'],
           style: TextStyle(
-            color: isUser ? Colors.black : Colors.white,
+            color: isSystem ? AppColors.error : (isUser ? Colors.white : AppColors.textPrimary),
             fontSize: 15,
+            height: 1.4,
           ),
         ),
       ),
@@ -305,13 +351,24 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildTypingIndicator() {
-    return const Padding(
-      padding: EdgeInsets.all(12),
+    return Padding(
+      padding: const EdgeInsets.only(left: 24, bottom: 8),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: Text(
-          'GigaFit печатает...',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'GigaFit печатает...',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary.withOpacity(0.7)),
+            ),
+          ],
         ),
       ),
     );
@@ -320,24 +377,37 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildInputArea() {
     return Container(
       padding: const EdgeInsets.all(12),
-      color: AppColors.surface,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.card, width: 1)),
+      ),
       child: SafeArea(
         child: Row(
           children: [
             Expanded(
               child: TextField(
                 controller: _messageController,
-                decoration: const InputDecoration(
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: InputDecoration(
                   hintText: 'Ваш вопрос...',
+                  hintStyle: const TextStyle(color: AppColors.textSecondary),
                   filled: true,
+                  fillColor: AppColors.background,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none), // Круглый инпут в чате смотрится лучше
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            IconButton.filled(
-              onPressed: _sendMessage,
-              icon: const Icon(Icons.send, color: Colors.black),
-              style: IconButton.styleFrom(backgroundColor: AppColors.primary),
+            Container(
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                onPressed: _sendMessage,
+                icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+              ),
             ),
           ],
         ),

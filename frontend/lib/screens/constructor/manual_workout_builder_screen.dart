@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+
 import '../../services/api_client.dart';
+import '../../widgets/theme.dart'; 
 
 class ManualWorkoutBuilderScreen extends StatefulWidget {
   const ManualWorkoutBuilderScreen({Key? key}) : super(key: key);
@@ -19,13 +21,8 @@ class _ManualWorkoutBuilderScreenState
   int _duration = 45; // Время по умолчанию
   bool _isLoading = false;
 
-  // Список выбранных упражнений. Структура: { 'id': '...', 'name': '...', 'sets': 3, 'reps': 12 }
+  // Список выбранных упражнений
   final List<Map<String, dynamic>> _selectedExercises = [];
-
-  // Цвета темы
-  final Color primaryGreen = const Color(0xFF00E676);
-  final Color bgColor = const Color(0xFF121212);
-  final Color cardColor = const Color(0xFF1E1E1E);
 
   @override
   void dispose() {
@@ -40,7 +37,7 @@ class _ManualWorkoutBuilderScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Введите название тренировки'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -49,7 +46,7 @@ class _ManualWorkoutBuilderScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Добавьте хотя бы одно упражнение'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -57,7 +54,6 @@ class _ManualWorkoutBuilderScreenState
 
     setState(() => _isLoading = true);
 
-    // Собираем JSON ровно в том формате, который ждет Go бэкенд
     final payload = {
       "title": _titleController.text.trim(),
       "description": _descController.text.trim(),
@@ -75,12 +71,10 @@ class _ManualWorkoutBuilderScreenState
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Тренировка успешно создана! 🎉'),
-              backgroundColor: Colors.green,
+              backgroundColor: AppColors.primary,
             ),
           );
-          Navigator.pop(
-            context,
-          ); // Возвращаемся назад после успешного сохранения
+          Navigator.pop(context); // Возвращаемся назад
         }
       } else {
         throw Exception('Ошибка сервера: ${response.statusCode}');
@@ -88,7 +82,10 @@ class _ManualWorkoutBuilderScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Ошибка: $e'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     } finally {
@@ -96,87 +93,91 @@ class _ManualWorkoutBuilderScreenState
     }
   }
 
-  // Модальное окно для "выбора" упражнения (заглушка для базы)
-  // Модальное окно для выбора упражнений (Теперь из реальной БД!)
+  // Модальное окно для выбора упражнений
   void _showAddExerciseModal() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: cardColor,
+      backgroundColor: AppColors.surface, // Темно-серая поверхность
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         return FutureBuilder<List<dynamic>>(
-          // Здесь мы вызываем твой метод получения упражнений.
-          // Если твой метод getAllExercises() лежит в каком-то классе (например ExerciseService),
-          // то напиши ExerciseService().getAllExercises().
-          // А пока я сделаю прямой вызов через твой ApiClient:
           future: _fetchAllExercisesFromApi(),
           builder: (context, snapshot) {
-            // 1. Состояние: Загрузка
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(
-                child: CircularProgressIndicator(color: Color(0xFF00E676)),
+                child: CircularProgressIndicator(color: AppColors.primary),
               );
             }
 
-            // 2. Состояние: Ошибка
             if (snapshot.hasError) {
               return Center(
                 child: Text(
                   'Ошибка загрузки: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.red),
+                  style: const TextStyle(color: AppColors.error),
                 ),
               );
             }
 
-            // 3. Состояние: Пусто
             if (!snapshot.hasData || snapshot.data!.isEmpty) {
               return const Center(
                 child: Text(
                   'База упражнений пуста',
-                  style: TextStyle(color: Colors.white70),
+                  style: TextStyle(color: AppColors.textSecondary),
                 ),
               );
             }
 
-            // 4. Состояние: Успех (Рисуем реальный список)
             final exercises = snapshot.data!;
 
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: exercises.length,
-              itemBuilder: (context, index) {
-                final ex = exercises[index];
-
-                // Безопасно достаем данные (подстрой под свои ключи JSON)
-                final exId = ex['id'];
-                final exName = ex['name'] ?? 'Без названия';
-                // Если хочешь, можно еще выводить группу мышц:
-                // final muscle = ex['muscle_groups']?['primary']?[0] ?? '';
-
-                return ListTile(
-                  title: Text(
-                    exName,
-                    style: const TextStyle(
-                      color: Colors.white,
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text(
+                    'Выберите упражнение',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  // subtitle: muscle.isNotEmpty ? Text(muscle, style: TextStyle(color: Colors.grey[500], fontSize: 12)) : null,
-                  trailing: const Icon(
-                    Icons.add_circle_outline,
-                    color: Color(0xFF00E676),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: exercises.length,
+                    itemBuilder: (context, index) {
+                      final ex = exercises[index];
+                      final exId = ex['id'];
+                      final exName = ex['name'] ?? 'Без названия';
+
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                        ),
+                        title: Text(
+                          exName,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        trailing: const Icon(
+                          Icons.add_circle_outline,
+                          color: AppColors.primary,
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          _showSetsRepsDialog(exId, exName);
+                        },
+                      );
+                    },
                   ),
-                  onTap: () {
-                    Navigator.pop(context); // Закрываем шторку
-                    _showSetsRepsDialog(
-                      exId,
-                      exName,
-                    ); // Спрашиваем подходы и повторения
-                  },
-                );
-              },
+                ),
+              ],
             );
           },
         );
@@ -184,7 +185,6 @@ class _ManualWorkoutBuilderScreenState
     );
   }
 
-  // Добавь этот метод рядышком (или используй свой готовый getAllExercises, если он уже импортирован)
   Future<List<dynamic>> _fetchAllExercisesFromApi() async {
     try {
       final response = await ApiClient().get('/exercise/all');
@@ -209,10 +209,17 @@ class _ManualWorkoutBuilderScreenState
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              backgroundColor: cardColor,
+              backgroundColor: AppColors.surface, // Поверхность диалога
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               title: Text(
-                'Настроить: $exName',
-                style: const TextStyle(color: Colors.white, fontSize: 18),
+                'Настроить:\n$exName',
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -222,12 +229,15 @@ class _ManualWorkoutBuilderScreenState
                     children: [
                       const Text(
                         'Подходы:',
-                        style: TextStyle(color: Colors.white70),
+                        style: TextStyle(color: AppColors.textSecondary),
                       ),
                       Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.remove, color: Colors.white),
+                            icon: const Icon(
+                              Icons.remove,
+                              color: AppColors.primary,
+                            ),
                             onPressed: () => setDialogState(
                               () => sets = sets > 1 ? sets - 1 : 1,
                             ),
@@ -235,13 +245,16 @@ class _ManualWorkoutBuilderScreenState
                           Text(
                             '$sets',
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.add, color: Colors.white),
+                            icon: const Icon(
+                              Icons.add,
+                              color: AppColors.primary,
+                            ),
                             onPressed: () => setDialogState(() => sets++),
                           ),
                         ],
@@ -253,12 +266,15 @@ class _ManualWorkoutBuilderScreenState
                     children: [
                       const Text(
                         'Повторения:',
-                        style: TextStyle(color: Colors.white70),
+                        style: TextStyle(color: AppColors.textSecondary),
                       ),
                       Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.remove, color: Colors.white),
+                            icon: const Icon(
+                              Icons.remove,
+                              color: AppColors.primary,
+                            ),
                             onPressed: () => setDialogState(
                               () => reps = reps > 1 ? reps - 1 : 1,
                             ),
@@ -266,13 +282,16 @@ class _ManualWorkoutBuilderScreenState
                           Text(
                             '$reps',
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.add, color: Colors.white),
+                            icon: const Icon(
+                              Icons.add,
+                              color: AppColors.primary,
+                            ),
                             onPressed: () => setDialogState(() => reps++),
                           ),
                         ],
@@ -286,12 +305,16 @@ class _ManualWorkoutBuilderScreenState
                   onPressed: () => Navigator.pop(context),
                   child: const Text(
                     'Отмена',
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: AppColors.textSecondary),
                   ),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryGreen,
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   onPressed: () {
                     setState(() {
@@ -306,7 +329,7 @@ class _ManualWorkoutBuilderScreenState
                   },
                   child: const Text(
                     'Добавить',
-                    style: TextStyle(color: Colors.black),
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -317,20 +340,21 @@ class _ManualWorkoutBuilderScreenState
     );
   }
 
-  // Вспомогательный метод для красивых полей ввода
+  // Вспомогательный метод для полей ввода (Строгий стиль)
   InputDecoration _inputStyle(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: Colors.grey[600]),
+      hintStyle: const TextStyle(color: AppColors.textSecondary),
       filled: true,
-      fillColor: Colors.white.withOpacity(0.05),
+      fillColor: AppColors.surface, // Темно-серая заливка
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: primaryGreen),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
       ),
     );
   }
@@ -338,15 +362,20 @@ class _ManualWorkoutBuilderScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
-          'Новая тренировка',
-          style: TextStyle(color: Colors.white),
+          'Своя тренировка',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
+          ),
         ),
-        backgroundColor: bgColor,
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: AppColors.background,
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
         elevation: 0,
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -357,7 +386,7 @@ class _ManualWorkoutBuilderScreenState
             TextField(
               controller: _titleController,
               style: const TextStyle(
-                color: Colors.white,
+                color: AppColors.textPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -366,7 +395,7 @@ class _ManualWorkoutBuilderScreenState
             const SizedBox(height: 12),
             TextField(
               controller: _descController,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AppColors.textPrimary),
               maxLines: 2,
               decoration: _inputStyle('Описание (опционально)'),
             ),
@@ -376,8 +405,9 @@ class _ManualWorkoutBuilderScreenState
             const Text(
               'Примерное время (мин):',
               style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
               ),
             ),
             Slider(
@@ -385,8 +415,8 @@ class _ManualWorkoutBuilderScreenState
               min: 15,
               max: 120,
               divisions: 7,
-              activeColor: primaryGreen,
-              inactiveColor: Colors.white24,
+              activeColor: AppColors.primary,
+              inactiveColor: AppColors.surface,
               label: '$_duration мин',
               onChanged: (val) => setState(() => _duration = val.toInt()),
             ),
@@ -396,7 +426,7 @@ class _ManualWorkoutBuilderScreenState
             const Text(
               'Упражнения:',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.textPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -408,12 +438,13 @@ class _ManualWorkoutBuilderScreenState
                 padding: const EdgeInsets.all(20),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(16),
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.surface),
                 ),
-                child: Text(
+                child: const Text(
                   'Вы еще не добавили упражнения',
-                  style: TextStyle(color: Colors.grey[500]),
+                  style: TextStyle(color: AppColors.textSecondary),
                 ),
               ),
 
@@ -421,8 +452,9 @@ class _ManualWorkoutBuilderScreenState
               int idx = entry.key;
               Map ex = entry.value;
               return Card(
-                color: cardColor,
+                color: AppColors.card,
                 margin: const EdgeInsets.only(bottom: 8),
+                elevation: 2,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -430,19 +462,21 @@ class _ManualWorkoutBuilderScreenState
                   title: Text(
                     ex['name'],
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   subtitle: Text(
                     '${ex['sets']} подходов x ${ex['reps']} повторений',
-                    style: TextStyle(color: Colors.grey[400]),
+                    style: const TextStyle(color: AppColors.textSecondary),
                   ),
                   trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.redAccent),
-                    onPressed: () => setState(
-                      () => _selectedExercises.removeAt(idx),
-                    ), // Удаление упражнения
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: AppColors.error,
+                    ),
+                    onPressed: () =>
+                        setState(() => _selectedExercises.removeAt(idx)),
                   ),
                 ),
               );
@@ -456,15 +490,19 @@ class _ManualWorkoutBuilderScreenState
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: BorderSide(color: primaryGreen),
+                  side: const BorderSide(color: AppColors.primary),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                icon: Icon(Icons.add, color: primaryGreen),
-                label: Text(
+                icon: const Icon(Icons.add, color: AppColors.primary),
+                label: const Text(
                   'Добавить упражнение',
-                  style: TextStyle(color: primaryGreen, fontSize: 16),
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 onPressed: _showAddExerciseModal,
               ),
@@ -477,19 +515,26 @@ class _ManualWorkoutBuilderScreenState
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: primaryGreen,
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white, // Белый текст вместо черного
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 onPressed: _isLoading ? null : _saveWorkout,
                 child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.black)
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.5,
+                        ),
+                      )
                     : const Text(
                         'Сохранить тренировку',
                         style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 18,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),

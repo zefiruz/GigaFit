@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// Импортируем наш новый сервис авторизации
 import '../../services/auth_service.dart'; 
 import '../../widgets/theme.dart';
 
@@ -13,10 +12,8 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // Используем AuthService вместо ApiService
   final AuthService _authService = AuthService();
 
-  // Контроллеры для считывания текста из полей
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -31,7 +28,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (username.isEmpty || email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Пожалуйста, заполните все поля')),
+        const SnackBar(
+          content: Text('Пожалуйста, заполните все поля'),
+          backgroundColor: AppColors.error,
+        ),
       );
       return;
     }
@@ -40,35 +40,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _isLoading = true;
     });
 
-    // Обращаемся к бэкенду через новый AuthService
     final errorMessage = await _authService.register(username, email, password);
 
-    // Безопасно выключаем загрузку
     if (mounted) {
       setState(() {
         _isLoading = false;
       });
     }
 
-    // Если errorMessage пустой, значит ошибок нет — успех!
     if (errorMessage == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Регистрация успешна! Теперь вы можете войти.'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.primaryDark,
           ),
         );
-        // Возвращаемся на экран входа
         Navigator.pop(context);
       }
     } else {
-      // Выводим ту самую ошибку, которая прилетела с твоего Go-бэкенда
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage), 
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -83,16 +78,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  // Фирменный стиль инпутов
+  InputDecoration _inputStyle(String label, IconData icon, {Widget? suffixIcon}) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: AppColors.textSecondary),
+      prefixIcon: Icon(icon, color: AppColors.textSecondary),
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: AppColors.surface,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background, // Строгий фон
       appBar: AppBar(
         title: Text(
           'Регистрация',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+            fontSize: 20,
+          ),
         ),
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.background,
         elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
       body: SafeArea(
         child: Center(
@@ -115,9 +137,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Text(
                   'Присоединяйтесь к GigaFit',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: GoogleFonts.poppins(
                     fontSize: 16,
-                    color: Colors.grey.shade600,
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 48),
@@ -126,13 +148,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextField(
                   controller: _usernameController,
                   textCapitalization: TextCapitalization.words,
-                  decoration: InputDecoration(
-                    labelText: 'Имя пользователя',
-                    prefixIcon: const Icon(Icons.person_outline),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+                  style: const TextStyle(color: AppColors.textPrimary),
+                  decoration: _inputStyle('Имя пользователя', Icons.person_outline),
                 ),
                 const SizedBox(height: 16),
 
@@ -140,13 +157,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: const Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+                  style: const TextStyle(color: AppColors.textPrimary),
+                  decoration: _inputStyle('Email', Icons.email_outlined),
                 ),
                 const SizedBox(height: 16),
 
@@ -154,12 +166,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    labelText: 'Пароль',
-                    prefixIcon: const Icon(Icons.lock_outline),
+                  style: const TextStyle(color: AppColors.textPrimary),
+                  decoration: _inputStyle(
+                    'Пароль', 
+                    Icons.lock_outline,
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: AppColors.textSecondary,
                       ),
                       onPressed: () {
                         setState(() {
@@ -167,32 +181,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         });
                       },
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                   ),
                 ),
                 const SizedBox(height: 32),
 
                 // Кнопка Зарегистрироваться
                 SizedBox(
-                  height: 50,
+                  height: 54,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleRegister,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary, 
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      elevation: 0,
                     ),
                     child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
+                        ? const SizedBox(
+                            height: 24, width: 24, 
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)
+                          )
                         : const Text(
                             'Зарегистрироваться',
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              letterSpacing: 0.5,
                             ),
                           ),
                   ),

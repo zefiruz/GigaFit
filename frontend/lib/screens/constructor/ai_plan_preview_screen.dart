@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import '../../services/api_client.dart'; // Убедись в правильности пути
+import '../../services/plan_service.dart';
+import '../../widgets/theme.dart';
 
 class AiPlanPreviewScreen extends StatefulWidget {
   final dynamic planData;
 
   const AiPlanPreviewScreen({Key? key, required this.planData})
-    : super(key: key);
+      : super(key: key);
 
   @override
   State<AiPlanPreviewScreen> createState() => _AiPlanPreviewScreenState();
@@ -26,29 +27,28 @@ class _AiPlanPreviewScreenState extends State<AiPlanPreviewScreen> {
         safeData['duration_weeks'] ?? safeData['DurationWeeks'] ?? 4;
     final List workouts = safeData['workouts'] ?? safeData['Workouts'] ?? [];
 
-    const primaryGreen = Color(0xFF00E676);
-    const cardColor = Color(0xFF1E1E1E);
-
     return PopScope(
       canPop: true,
       onPopInvoked: (didPop) {
-        // УМНОЕ УДАЛЕНИЕ: если юзер вышел и не сохранил план
         if (!_isSaved && planId != null) {
-          print('Отмена плана: отправляем DELETE /plan/$planId');
-          // Если на бэке есть хард-удаление для планов — добавь ?hard=true
-          ApiClient().delete('/plan/$planId');
+          PlanService().deletePlan(planId, hard: true);
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: AppColors.background,
         appBar: AppBar(
           title: const Text(
             'Ваш новый план',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+              fontSize: 20,
+            ),
           ),
-          backgroundColor: const Color(0xFF121212),
+          backgroundColor: AppColors.background,
           elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.white),
+          centerTitle: true,
+          iconTheme: const IconThemeData(color: AppColors.textPrimary),
         ),
         body: ListView(
           padding: const EdgeInsets.all(16),
@@ -57,11 +57,11 @@ class _AiPlanPreviewScreenState extends State<AiPlanPreviewScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(20),
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(16), // Строгие углы
                 border: Border.all(
-                  color: Colors.purpleAccent.withOpacity(0.3),
-                ), // Планы подсвечиваем фиолетовым/зеленым
+                  color: AppColors.system.withOpacity(0.3), // Синий акцент для планов
+                ), 
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,34 +70,39 @@ class _AiPlanPreviewScreenState extends State<AiPlanPreviewScreen> {
                     children: [
                       const Icon(
                         Icons.auto_awesome,
-                        color: Colors.purpleAccent,
+                        color: AppColors.system,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           title,
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Text(
                     'Длительность: $duration нед.',
                     style: const TextStyle(
-                      color: primaryGreen,
-                      fontWeight: FontWeight.bold,
+                      color: AppColors.system,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
                     ),
                   ),
                   const SizedBox(height: 8),
                   if (description.isNotEmpty)
                     Text(
                       description,
-                      style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary, 
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
                     ),
                 ],
               ),
@@ -108,16 +113,25 @@ class _AiPlanPreviewScreenState extends State<AiPlanPreviewScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 16),
 
             // Список тренировок в плане
             if (workouts.isEmpty)
-              const Text(
-                'ИИ не добавил тренировки :(',
-                style: TextStyle(color: Colors.grey),
+              Container(
+                padding: const EdgeInsets.all(20),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.surface),
+                ),
+                child: const Text(
+                  'ИИ не добавил тренировки :(',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
               ),
 
             ...workouts.map((w) {
@@ -125,18 +139,20 @@ class _AiPlanPreviewScreenState extends State<AiPlanPreviewScreen> {
               final day = w['day_number'] ?? w['DayNumber'] ?? 1;
 
               return Card(
-                color: cardColor,
+                color: AppColors.card,
                 margin: const EdgeInsets.only(bottom: 8),
+                elevation: 2,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   leading: CircleAvatar(
-                    backgroundColor: Colors.purpleAccent.withOpacity(0.2),
+                    backgroundColor: AppColors.system.withOpacity(0.15),
                     child: Text(
                       '$day',
                       style: const TextStyle(
-                        color: Colors.purpleAccent,
+                        color: AppColors.system,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -144,13 +160,13 @@ class _AiPlanPreviewScreenState extends State<AiPlanPreviewScreen> {
                   title: const Text(
                     'Тренировка',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   subtitle: Text(
                     'Неделя $week, День $day',
-                    style: TextStyle(color: Colors.grey[400]),
+                    style: const TextStyle(color: AppColors.textSecondary),
                   ),
                 ),
               );
@@ -162,17 +178,18 @@ class _AiPlanPreviewScreenState extends State<AiPlanPreviewScreen> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: primaryGreen,
+                backgroundColor: AppColors.system, // Используем системный цвет для планов
+                foregroundColor: Colors.white, // Белый текст
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               onPressed: () {
                 setState(() => _isSaved = true);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('План добавлен в библиотеку! 🗓️'),
-                    backgroundColor: Colors.green,
+                  SnackBar(
+                    content: const Text('План добавлен в библиотеку! 🗓️'),
+                    backgroundColor: AppColors.system,
                   ),
                 );
                 Navigator.of(context).popUntil((route) => route.isFirst);
@@ -180,9 +197,9 @@ class _AiPlanPreviewScreenState extends State<AiPlanPreviewScreen> {
               child: const Text(
                 'Добавить в мои планы',
                 style: TextStyle(
-                  color: Colors.black,
                   fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),

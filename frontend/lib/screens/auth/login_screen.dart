@@ -14,7 +14,6 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // Используем AuthService вместо ApiService
   final AuthService _authService = AuthService();
 
   final TextEditingController _emailController = TextEditingController();
@@ -29,7 +28,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Пожалуйста, заполните все поля')),
+        const SnackBar(
+          content: Text('Пожалуйста, заполните все поля'),
+          backgroundColor: AppColors.error,
+        ),
       );
       return;
     }
@@ -38,7 +40,6 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
-    // Вызываем метод логина из нашего нового сервиса
     final token = await _authService.login(email, password);
 
     if (mounted) {
@@ -48,23 +49,20 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (token != null) {
-      // Если токен получен (успех), переходим на главный экран
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            // Убедись, что класс MainScreen создан в main.dart или отдельном файле
             builder: (context) => const MainScreen(),
           ),
         );
       }
     } else {
-      // Если токен null (ошибка), показываем уведомление
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Неверный email или пароль'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -78,9 +76,30 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // Фирменный стиль инпутов
+  InputDecoration _inputStyle(String label, IconData icon, {Widget? suffixIcon}) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: AppColors.textSecondary),
+      prefixIcon: Icon(icon, color: AppColors.textSecondary),
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: AppColors.surface, // Темно-серый фон поля
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background, // Строгий темный фон
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -95,14 +114,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 40,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+                    color: AppColors.primary, // Оливковый акцент
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Войдите, чтобы продолжить',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+                  style: GoogleFonts.poppins(
+                    fontSize: 16, 
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 48),
 
@@ -110,13 +132,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: const Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+                  style: const TextStyle(color: AppColors.textPrimary),
+                  decoration: _inputStyle('Email', Icons.email_outlined),
                 ),
                 const SizedBox(height: 16),
 
@@ -124,12 +141,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    labelText: 'Пароль',
-                    prefixIcon: const Icon(Icons.lock_outline),
+                  style: const TextStyle(color: AppColors.textPrimary),
+                  decoration: _inputStyle(
+                    'Пароль', 
+                    Icons.lock_outline,
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: AppColors.textSecondary,
                       ),
                       onPressed: () {
                         setState(() {
@@ -137,32 +156,34 @@ class _LoginScreenState extends State<LoginScreen> {
                         });
                       },
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                   ),
                 ),
                 const SizedBox(height: 32),
 
                 // Кнопка Входа
                 SizedBox(
-                  height: 50,
+                  height: 54,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleLogin,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      elevation: 0,
                     ),
                     child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
+                        ? const SizedBox(
+                            height: 24, width: 24, 
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)
+                          )
                         : const Text(
                             'Войти',
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              letterSpacing: 0.5,
                             ),
                           ),
                   ),
@@ -179,7 +200,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     );
                   },
-                  child: const Text('Нет аккаунта? Зарегистрироваться'),
+                  child: const Text(
+                    'Нет аккаунта? Зарегистрироваться',
+                    style: TextStyle(color: AppColors.primary),
+                  ),
                 ),
               ],
             ),

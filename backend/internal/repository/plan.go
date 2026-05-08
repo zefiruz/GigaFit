@@ -51,7 +51,7 @@ func (r *postgresTrainingPlanRepository) GetAllTrainingPlans(userID uuid.UUID) (
 	var plans []models.TrainingPlan
 
 	err := r.db.
-		Where("user_id = ? OR is_system = ?", userID, true).
+		Where("user_id = ?", userID).
 		Preload("Workouts").
 		Preload("Workouts.Workout").
 		Preload("Workouts.Workout.Exercises").

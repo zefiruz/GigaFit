@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
-import '../../services/api_client.dart'; // Не забудь импорт твоего клиента
+import '../../services/workout_service.dart';
+import '../../widgets/theme.dart';
 
 class AiWorkoutPreviewScreen extends StatefulWidget {
   final dynamic workoutData;
 
   const AiWorkoutPreviewScreen({Key? key, required this.workoutData})
-    : super(key: key);
+      : super(key: key);
 
   @override
   State<AiWorkoutPreviewScreen> createState() => _AiWorkoutPreviewScreenState();
 }
 
 class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
-  // Флаг: сохранил ли юзер тренировку?
   bool _isSaved = false;
 
   @override
@@ -24,28 +24,25 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
         safeData['description'] ?? safeData['Description'] ?? '';
     final List exercises = safeData['exercises'] ?? safeData['Exercises'] ?? [];
 
-    const primaryGreen = Color(0xFF00E676);
-    const cardColor = Color(0xFF1E1E1E);
-
     // PopScope позволяет перехватить нажатие кнопки "Назад" или жест смахивания
     return PopScope(
       canPop: true,
       onPopInvoked: (didPop) {
         if (!_isSaved && workoutId != null) {
-          
-          ApiClient().delete('/workout/$workoutId?hard=true');
+          WorkoutService().deleteWorkout(workoutId, hard: true);
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: AppColors.background,
         appBar: AppBar(
           title: const Text(
             'Ваша тренировка',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 20),
           ),
-          backgroundColor: const Color(0xFF121212),
+          backgroundColor: AppColors.background,
           elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.white),
+          centerTitle: true,
+          iconTheme: const IconThemeData(color: AppColors.textPrimary),
         ),
         body: ListView(
           padding: const EdgeInsets.all(16),
@@ -54,9 +51,9 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: primaryGreen.withOpacity(0.3)),
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(16), // Строгий радиус
+                border: Border.all(color: AppColors.primary.withOpacity(0.3)), // Оливковая окантовка
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,14 +63,14 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   if (description.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
                       description,
-                      style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
                     ),
                   ],
                 ],
@@ -85,7 +82,7 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 16),
@@ -103,37 +100,42 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: cardColor,
+                  color: AppColors.card,
                   borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Theme(
-                  data: Theme.of(
-                    context,
-                  ).copyWith(dividerColor: Colors.transparent),
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                   child: ExpansionTile(
-                    iconColor: primaryGreen,
-                    collapsedIconColor: Colors.grey,
+                    iconColor: AppColors.primary,
+                    collapsedIconColor: AppColors.textSecondary,
                     leading: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
+                        color: AppColors.primary.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
                         Icons.fitness_center,
-                        color: primaryGreen,
+                        color: AppColors.primary,
                       ),
                     ),
                     title: Text(
                       exName,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.textPrimary,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     subtitle: Text(
                       '$sets подхода по $reps повторений',
-                      style: TextStyle(color: Colors.grey[400], fontSize: 13),
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                     ),
                     children: [
                       Padding(
@@ -145,21 +147,22 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Divider(color: Colors.white10),
+                            const Divider(color: AppColors.surface), // Темный разделитель
                             const SizedBox(height: 8),
                             const Text(
                               'ТЕХНИКА:',
                               style: TextStyle(
-                                color: primaryGreen,
+                                color: AppColors.primary,
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               exDesc,
                               style: const TextStyle(
-                                color: Colors.white70,
+                                color: AppColors.textPrimary,
                                 fontSize: 14,
                                 height: 1.4,
                               ),
@@ -169,9 +172,10 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
                               const Text(
                                 'РАБОЧИЕ МЫШЦЫ:',
                                 style: TextStyle(
-                                  color: primaryGreen,
+                                  color: AppColors.primary,
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -197,9 +201,10 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: primaryGreen,
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white, // Белый текст!
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               onPressed: () {
@@ -210,10 +215,8 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text(
-                      'Тренировка сохранена в "Мои тренировки"! 💪',
-                    ),
-                    backgroundColor: Colors.green,
+                    content: Text('Тренировка сохранена в "Мои тренировки"! 💪'),
+                    backgroundColor: AppColors.primaryDark,
                   ),
                 );
 
@@ -223,7 +226,6 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
               child: const Text(
                 'Добавить в мои тренировки',
                 style: TextStyle(
-                  color: Colors.black,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -236,17 +238,18 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
     );
   }
 
+  // Обновленный чипс для мышц (строгий стиль)
   Widget _buildMuscleChip(String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF00E676).withOpacity(0.1),
+        color: AppColors.primary.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF00E676).withOpacity(0.3)),
+        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
       ),
       child: Text(
         label,
-        style: const TextStyle(color: Colors.white, fontSize: 11),
+        style: const TextStyle(color: AppColors.textPrimary, fontSize: 11, fontWeight: FontWeight.w500),
       ),
     );
   }

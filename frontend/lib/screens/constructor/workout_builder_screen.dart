@@ -1,31 +1,37 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../../services/api_client.dart';
-import 'ai_workout_preview_screen.dart';
 
+// ТВОИ ИМПОРТЫ
+import '../../services/api_client.dart';
+import '../../widgets/theme.dart';
+
+// ЭКРАНЫ
+import 'ai_workout_preview_screen.dart';
 import 'manual_workout_builder_screen.dart';
 import 'manual_plan_builder_screen.dart';
 import 'ai_plan_preview_screen.dart';
+import 'catalog_screen.dart';
 
 class WorkoutBuilderScreen extends StatelessWidget {
   const WorkoutBuilderScreen({Key? key}) : super(key: key);
 
-  final Color bgColor = const Color(0xFF121212);
-  final Color cardColor = const Color(0xFF1E1E1E);
-  final Color primaryGreen = const Color(0xFF00E676);
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
           'Конструктор',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+            fontSize: 20,
+          ),
         ),
-        backgroundColor: bgColor,
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: AppColors.background,
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
         elevation: 0,
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -35,15 +41,15 @@ class WorkoutBuilderScreen extends StatelessWidget {
             const Text(
               'С чего начнем сегодня?',
               style: TextStyle(
-                fontSize: 24,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 24),
 
             // ==========================================
-            // БЛОК 1: МАГИЯ ИИ (Нейросеть)
+            // БЛОК 1: МАГИЯ ИИ (Оливковый градиент)
             // ==========================================
             _buildAiBlock(context),
             const SizedBox(height: 32),
@@ -52,31 +58,33 @@ class WorkoutBuilderScreen extends StatelessWidget {
               'Классический подход',
               style: TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 16),
 
             // ==========================================
-            // БЛОК 2: РУЧНОЙ РЕЖИМ (Своя программа)
+            // БЛОК 2: РУЧНОЙ РЕЖИМ (Строгий серый)
             // ==========================================
             _buildManualBlock(context),
             const SizedBox(height: 16),
 
             // ==========================================
-            // БЛОК 3: БИБЛИОТЕКА (Готовые решения)
+            // БЛОК 3: БИБЛИОТЕКА (Стальной синий)
             // ==========================================
             _buildActionCard(
               context,
-              title: 'Библиотека программ',
-              subtitle: 'Выбрать из готовых тренировок и планов',
+              title: 'Каталог программ',
+              subtitle: 'Выбрать из готовых системных тренировок и планов',
               icon: Icons.view_list_rounded,
-              color: Colors.blueAccent,
+              color: AppColors.system,
               onTap: () {
-                // TODO: Переход в общую библиотеку GigaFit (не личную)
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Открываем библиотеку...')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CatalogScreen(),
+                  ),
                 );
               },
             ),
@@ -87,22 +95,22 @@ class WorkoutBuilderScreen extends StatelessWidget {
   }
 
   // ---------------------------------------------------------
-  // ВИДЖЕТ: БЛОК ИИ (Зеленый градиент)
+  // ВИДЖЕТ: БЛОК ИИ (Оливковый)
   // ---------------------------------------------------------
   Widget _buildAiBlock(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF004D40), Color(0xFF00C853)],
+          colors: [AppColors.primaryDark, AppColors.primary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: primaryGreen.withOpacity(0.2),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: AppColors.primary.withOpacity(0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -115,13 +123,13 @@ class WorkoutBuilderScreen extends StatelessWidget {
             children: [
               Row(
                 children: const [
-                  Icon(Icons.auto_awesome, color: Colors.black, size: 28),
+                  Icon(Icons.auto_awesome, color: Colors.white, size: 28),
                   SizedBox(width: 12),
                   Text(
                     'Тренер GigaFit (ИИ)',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 20,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -139,7 +147,8 @@ class WorkoutBuilderScreen extends StatelessWidget {
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
+                        foregroundColor: AppColors.primaryDark,
+                        elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -147,7 +156,7 @@ class WorkoutBuilderScreen extends StatelessWidget {
                       onPressed: () => _showAiWorkoutBottomSheet(context),
                       child: const Text(
                         'Тренировка',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
@@ -155,7 +164,7 @@ class WorkoutBuilderScreen extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black45,
+                        backgroundColor: AppColors.background.withOpacity(0.4),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -163,7 +172,10 @@ class WorkoutBuilderScreen extends StatelessWidget {
                         ),
                       ),
                       onPressed: () => _showAiPlanBottomSheet(context),
-                      child: const Text('План на месяц'),
+                      child: const Text(
+                        'План на месяц',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
                 ],
@@ -176,25 +188,19 @@ class WorkoutBuilderScreen extends StatelessWidget {
   }
 
   // ---------------------------------------------------------
-  // ВИДЖЕТ: БЛОК РУЧНОГО СОЗДАНИЯ (Огненный градиент)
+  // ВИДЖЕТ: БЛОК РУЧНОГО СОЗДАНИЯ (Светло-серый акцент)
   // ---------------------------------------------------------
   Widget _buildManualBlock(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFBF360C),
-            Color(0xFFFF6D00),
-          ], // Глубокий красный в ярко-оранжевый
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.personal.withOpacity(0.15)),
         boxShadow: [
           BoxShadow(
-            color: Colors.deepOrange.withOpacity(0.2),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -207,13 +213,13 @@ class WorkoutBuilderScreen extends StatelessWidget {
             children: [
               Row(
                 children: const [
-                  Icon(Icons.build_circle, color: Colors.white, size: 28),
+                  Icon(Icons.build_circle, color: AppColors.personal, size: 28),
                   SizedBox(width: 12),
                   Text(
                     'Своя программа',
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -222,7 +228,7 @@ class WorkoutBuilderScreen extends StatelessWidget {
               const SizedBox(height: 12),
               const Text(
                 'Соберите тренировку или долгосрочный план из базы упражнений вручную.',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
               ),
               const SizedBox(height: 20),
               Row(
@@ -230,8 +236,9 @@ class WorkoutBuilderScreen extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.deepOrange,
+                        backgroundColor: AppColors.personal,
+                        foregroundColor: AppColors.background,
+                        elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -247,7 +254,7 @@ class WorkoutBuilderScreen extends StatelessWidget {
                       },
                       child: const Text(
                         'Тренировка',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
@@ -255,11 +262,14 @@ class WorkoutBuilderScreen extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black45,
-                        foregroundColor: Colors.white,
+                        backgroundColor: AppColors.surface,
+                        foregroundColor: AppColors.textPrimary,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: AppColors.personal.withOpacity(0.3),
+                          ),
                         ),
                       ),
                       onPressed: () {
@@ -271,7 +281,10 @@ class WorkoutBuilderScreen extends StatelessWidget {
                           ),
                         );
                       },
-                      child: const Text('План на месяц'),
+                      child: const Text(
+                        'План на месяц',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
                 ],
@@ -284,7 +297,7 @@ class WorkoutBuilderScreen extends StatelessWidget {
   }
 
   // ---------------------------------------------------------
-  // Универсальная карточка (Для библиотеки)
+  // Универсальная карточка
   // ---------------------------------------------------------
   Widget _buildActionCard(
     BuildContext context, {
@@ -295,26 +308,27 @@ class WorkoutBuilderScreen extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     return Card(
-      color: cardColor,
-      elevation: 0,
+      color: AppColors.card,
+      elevation: 4,
+      shadowColor: Colors.black.withOpacity(0.2),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: Colors.white.withOpacity(0.05)),
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: color.withOpacity(0.15)),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(16),
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: color, size: 32),
+                child: Icon(icon, color: color, size: 28),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -324,20 +338,23 @@ class WorkoutBuilderScreen extends StatelessWidget {
                     Text(
                       title,
                       style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: TextStyle(fontSize: 14, color: Colors.grey[400]),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.grey),
+              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
             ],
           ),
         ),
@@ -345,9 +362,46 @@ class WorkoutBuilderScreen extends StatelessWidget {
     );
   }
 
-  // ---------------------------------------------------------
-  // Логика шторки ИИ (Осталась без изменений)
-  // ---------------------------------------------------------
+  // =========================================================
+  // ЛОГИКА И ШТОРКИ ИИ
+  // =========================================================
+
+  Widget _buildChoiceChips(
+    List<String> options,
+    String currentSelection,
+    Color activeColor,
+    Function(String) onSelect,
+  ) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: options.map((opt) {
+        final isSelected = currentSelection == opt;
+        return ChoiceChip(
+          label: Text(opt),
+          selected: isSelected,
+          showCheckmark: false,
+          selectedColor: activeColor.withOpacity(0.15),
+          backgroundColor: AppColors.background,
+          labelStyle: TextStyle(
+            color: isSelected ? activeColor : AppColors.textSecondary,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(
+              color: isSelected ? activeColor : Colors.transparent,
+            ),
+          ),
+          onSelected: (val) {
+            if (val) onSelect(opt);
+          },
+        );
+      }).toList(),
+    );
+  }
+
+  // --- Шторка генерации ТРЕНИРОВКИ ---
   void _showAiWorkoutBottomSheet(BuildContext context) {
     String selectedPlace = 'Дома';
     String selectedTime = '45 минут';
@@ -357,48 +411,13 @@ class WorkoutBuilderScreen extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: cardColor, // Темный фон шторки
+      backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
-            Widget buildChoiceChips(
-              List<String> options,
-              String currentSelection,
-              Function(String) onSelect,
-            ) {
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: options.map((opt) {
-                  final isSelected = currentSelection == opt;
-                  return ChoiceChip(
-                    label: Text(opt),
-                    selected: isSelected,
-                    selectedColor: primaryGreen.withOpacity(0.2),
-                    backgroundColor: bgColor,
-                    labelStyle: TextStyle(
-                      color: isSelected ? primaryGreen : Colors.white70,
-                      fontWeight: isSelected
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                        color: isSelected ? primaryGreen : Colors.transparent,
-                      ),
-                    ),
-                    onSelected: (val) {
-                      if (val) onSelect(opt);
-                    },
-                  );
-                }).toList(),
-              );
-            }
-
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -413,66 +432,72 @@ class WorkoutBuilderScreen extends StatelessWidget {
                   const Text(
                     'Настройте тренировку',
                     style: TextStyle(
-                      fontSize: 22,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 24),
                   const Text(
                     'Где тренируемся?',
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  buildChoiceChips(
+                  const SizedBox(height: 8),
+                  _buildChoiceChips(
                     ['Дома', 'В зале', 'На улице'],
                     selectedPlace,
+                    AppColors.primary,
                     (v) => setState(() => selectedPlace = v),
                   ),
                   const SizedBox(height: 20),
+
                   const Text(
                     'Сколько есть времени?',
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  buildChoiceChips(
+                  const SizedBox(height: 8),
+                  _buildChoiceChips(
                     ['15 минут', '30 минут', '45 минут', '60 минут'],
                     selectedTime,
+                    AppColors.primary,
                     (v) => setState(() => selectedTime = v),
                   ),
                   const SizedBox(height: 20),
+
                   const Text(
                     'Фокус на сегодня',
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  buildChoiceChips(
+                  const SizedBox(height: 8),
+                  _buildChoiceChips(
                     ['Похудение', 'Рельеф', 'Масса', 'Тонизирование'],
                     selectedGoal,
+                    AppColors.primary,
                     (v) => setState(() => selectedGoal = v),
                   ),
                   const SizedBox(height: 32),
+
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: primaryGreen,
-                        foregroundColor: Colors.black,
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                       onPressed: isLoading
@@ -481,23 +506,19 @@ class WorkoutBuilderScreen extends StatelessWidget {
                               setState(() => isLoading = true);
                               final promptGoal =
                                   'Место: $selectedPlace. Время: $selectedTime. Цель: $selectedGoal.';
-
                               try {
-                                final client = ApiClient();
-                                final response = await client.post(
+                                final response = await ApiClient().post(
                                   '/workout/ai',
                                   {'goal': promptGoal},
                                   timeout: const Duration(seconds: 60),
                                 );
-
                                 if (response.statusCode == 200 ||
                                     response.statusCode == 201) {
                                   final responseData = jsonDecode(
                                     response.body,
                                   );
-
                                   if (context.mounted) {
-                                    Navigator.pop(context); // Закрываем шторку
+                                    Navigator.pop(context);
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
@@ -512,7 +533,7 @@ class WorkoutBuilderScreen extends StatelessWidget {
                                   }
                                 } else {
                                   throw Exception(
-                                    'Ошибка: ${response.statusCode} - ${response.body}',
+                                    'Ошибка: ${response.statusCode}',
                                   );
                                 }
                               } catch (e) {
@@ -521,7 +542,7 @@ class WorkoutBuilderScreen extends StatelessWidget {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text('Ошибка: $e'),
-                                      backgroundColor: Colors.red,
+                                      backgroundColor: AppColors.error,
                                     ),
                                   );
                                 }
@@ -532,15 +553,15 @@ class WorkoutBuilderScreen extends StatelessWidget {
                               height: 24,
                               width: 24,
                               child: CircularProgressIndicator(
-                                color: Colors.black,
-                                strokeWidth: 3,
+                                color: Colors.white,
+                                strokeWidth: 2.5,
                               ),
                             )
                           : const Text(
                               'Сгенерировать',
                               style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                     ),
@@ -555,6 +576,7 @@ class WorkoutBuilderScreen extends StatelessWidget {
     );
   }
 
+  // --- Шторка генерации ПЛАНА ---
   void _showAiPlanBottomSheet(BuildContext context) {
     String selectedGoal = 'Масса';
     int daysPerWeek = 3;
@@ -564,53 +586,13 @@ class WorkoutBuilderScreen extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: cardColor,
+      backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
-            // Виджет кнопок
-            Widget buildChoiceChips(
-              List<String> options,
-              String currentSelection,
-              Function(String) onSelect,
-            ) {
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: options.map((opt) {
-                  final isSelected = currentSelection == opt;
-                  return ChoiceChip(
-                    label: Text(opt),
-                    selected: isSelected,
-                    selectedColor: Colors.purpleAccent.withOpacity(
-                      0.2,
-                    ), // Для плана цвет фиолетовый
-                    backgroundColor: bgColor,
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.purpleAccent : Colors.white70,
-                      fontWeight: isSelected
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                        color: isSelected
-                            ? Colors.purpleAccent
-                            : Colors.transparent,
-                      ),
-                    ),
-                    onSelected: (val) {
-                      if (val) onSelect(opt);
-                    },
-                  );
-                }).toList(),
-              );
-            }
-
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -625,9 +607,9 @@ class WorkoutBuilderScreen extends StatelessWidget {
                   const Text(
                     'Сгенерировать План',
                     style: TextStyle(
-                      fontSize: 22,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -635,15 +617,16 @@ class WorkoutBuilderScreen extends StatelessWidget {
                   const Text(
                     'Главная цель:',
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  buildChoiceChips(
+                  const SizedBox(height: 8),
+                  _buildChoiceChips(
                     ['Похудение', 'Рельеф', 'Масса', 'Выносливость'],
                     selectedGoal,
+                    AppColors.system,
                     (v) => setState(() => selectedGoal = v),
                   ),
                   const SizedBox(height: 20),
@@ -651,15 +634,16 @@ class WorkoutBuilderScreen extends StatelessWidget {
                   const Text(
                     'Тренировок в неделю:',
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  buildChoiceChips(
+                  const SizedBox(height: 8),
+                  _buildChoiceChips(
                     ['2 дня', '3 дня', '4 дня', '5 дней'],
-                    '$daysPerWeek ${daysPerWeek > 4 ? 'дней' : 'дня'}', // Подгон под строку
+                    '$daysPerWeek ${daysPerWeek > 4 ? 'дней' : 'дня'}',
+                    AppColors.system,
                     (v) => setState(
                       () => daysPerWeek = int.parse(v.split(' ')[0]),
                     ),
@@ -669,9 +653,9 @@ class WorkoutBuilderScreen extends StatelessWidget {
                   const Text(
                     'Продолжительность (недели):',
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   Slider(
@@ -679,53 +663,45 @@ class WorkoutBuilderScreen extends StatelessWidget {
                     min: 2,
                     max: 12,
                     divisions: 5,
-                    activeColor: Colors.purpleAccent,
-                    inactiveColor: Colors.white24,
+                    activeColor: AppColors.system,
+                    inactiveColor: AppColors.background,
                     label: '$durationWeeks нед.',
                     onChanged: (val) =>
                         setState(() => durationWeeks = val.toInt()),
                   ),
                   const SizedBox(height: 32),
 
-                  // Кнопка генерации
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: Colors.purpleAccent,
+                        backgroundColor: AppColors.system,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                       onPressed: isLoading
                           ? null
                           : () async {
                               setState(() => isLoading = true);
-
                               final payload = {
                                 'goal': selectedGoal,
                                 'days_per_week': daysPerWeek,
                                 'duration_weeks': durationWeeks,
                               };
-
                               try {
-                                // ПРОВЕРЬ: убедись, что твоя ручка называется /plan/ai
                                 final response = await ApiClient().post(
-                                  '/plan/ai', // <--- ТВОЙ ЭНДПОИНТ ИЗ GO
+                                  '/plan/ai',
                                   payload,
-                                  timeout: const Duration(
-                                    seconds: 90,
-                                  ), // ИИ для планов думает дольше!
+                                  timeout: const Duration(seconds: 90),
                                 );
-
                                 if (response.statusCode == 200 ||
                                     response.statusCode == 201) {
                                   final responseData = jsonDecode(
                                     response.body,
                                   );
-
                                   if (context.mounted) {
                                     Navigator.pop(context);
                                     Navigator.push(
@@ -751,7 +727,7 @@ class WorkoutBuilderScreen extends StatelessWidget {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text('Ошибка ИИ: $e'),
-                                      backgroundColor: Colors.red,
+                                      backgroundColor: AppColors.error,
                                     ),
                                   );
                                 }
@@ -763,14 +739,14 @@ class WorkoutBuilderScreen extends StatelessWidget {
                               width: 24,
                               child: CircularProgressIndicator(
                                 color: Colors.white,
-                                strokeWidth: 3,
+                                strokeWidth: 2.5,
                               ),
                             )
                           : const Text(
                               'Создать магию 🪄',
                               style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                     ),
