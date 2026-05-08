@@ -1,0 +1,105 @@
+package service
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strings"
+)
+
+func (s *gigaChatService) GeneratePlanOrchestrator(userGoal string, daysPerWeek int) (*PlanBlueprint, error) {
+	token, err := s.getAccessToken()
+	if err != nil {
+		return nil, err
+	}
+
+	// 1. Просим ИИ вернуть Название, Описание и список дней в виде обычного текста
+	systemPrompt := fmt.Sprintf(
+		"Ты элитный фитнес-тренер. Клиент хочет: '%s'. Разбей эту цель на %d тренировок.\n"+
+			"ОТВЕЧАЙ СТРОГО В ТАКОМ ФОРМАТЕ (каждый пункт с новой строки, без markdown и без JSON):\n"+
+			"Название: [Придумай крутое, цепляющее название плану]\n"+
+			"Описание: [Напиши 1-2 мотивирующих предложения о плане]\n"+
+			"Тренировка: [Фокус 1]\n"+
+			"Тренировка: [Фокус 2]",
+		userGoal, daysPerWeek,
+	)
+
+	payload := map[string]interface{}{
+		"model":       "GigaChat",
+		"temperature": 0.5, // Немного даем креатива для придумывания названия
+		"messages": []map[string]string{
+			{"role": "system", "content": systemPrompt},
+			{"role": "user", "content": "Сгенерируй структуру плана"},
+		},
+	}
+	body, _ := json.Marshal(payload)
+
+	req, _ := http.NewRequest("POST", "https://gigachat.devices.sberbank.ru/api/v1/chat/completions", bytes.NewBuffer(body))
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", "Bearer "+token)
+
+	res, err := s.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var chatRes struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+
+	if err := json.NewDecoder(res.Body).Decode(&chatRes); err != nil || len(chatRes.Choices) == 0 {
+		return nil, fmt.Errorf("ошибка ответа GigaChat")
+	}
+
+	aiContent := chatRes.Choices[0].Message.Content
+
+	// 2. ПАРСИНГ ОБЫЧНОГО ТЕКСТА
+	lines := strings.Split(aiContent, "\n")
+	blueprint := &PlanBlueprint{}
+
+	for _, line := range lines {
+		cleanLine := strings.TrimSpace(line)
+		if cleanLine == "" {
+			continue
+		}
+
+		// Вытаскиваем Название
+		if strings.HasPrefix(cleanLine, "Название:") {
+			blueprint.Title = strings.TrimSpace(strings.TrimPrefix(cleanLine, "Название:"))
+			continue
+		}
+
+		// Вытаскиваем Описание
+		if strings.HasPrefix(cleanLine, "Описание:") {
+			blueprint.Description = strings.TrimSpace(strings.TrimPrefix(cleanLine, "Описание:"))
+			continue
+		}
+
+		// Все остальное считаем днями тренировок (чистим от лишних слов в начале)
+		cleanGoal := strings.TrimLeft(cleanLine, "1234567890.- ТренировкаДень: ")
+		if cleanGoal != "" {
+			blueprint.DailyGoals = append(blueprint.DailyGoals, cleanGoal)
+		}
+	}
+
+	// Страховка (если ИИ почему-то не придумал название)
+	if blueprint.Title == "" {
+		blueprint.Title = "План: " + userGoal
+	}
+	if blueprint.Description == "" {
+		blueprint.Description = "Сгенерировано умным помощником GigaFit."
+	}
+
+	// Обрезаем массив, если ИИ "перестарался" и выдал больше дней
+	if len(blueprint.DailyGoals) > daysPerWeek {
+		blueprint.DailyGoals = blueprint.DailyGoals[:daysPerWeek]
+	}
+
+	return blueprint, nil
+}

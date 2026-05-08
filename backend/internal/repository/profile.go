@@ -50,23 +50,18 @@ func (r *postgresProfileRepository) UpdateAnthropometry(userID uuid.UUID, height
 		}
 
 		updates := map[string]interface{}{
-			"current_weight": weight,
-			"current_height": height,
-			"goal":           goal,
+			"goal": goal,
 		}
 
-		// Если это самый первый ввод данных — фиксируем как начальные значения
 		if user.InitialWeight == 0 {
 			updates["initial_weight"] = weight
 			updates["initial_height"] = height
 		}
 
-		// Обновляем юзера
 		if err := tx.Model(&user).Updates(updates).Error; err != nil {
 			return err
 		}
 
-		// Создаем запись в журнале прогресса
 		log := models.MeasurementLog{
 			ID:        uuid.New(),
 			UserID:    userID,
@@ -81,15 +76,14 @@ func (r *postgresProfileRepository) UpdateAnthropometry(userID uuid.UUID, height
 
 func (r *postgresProfileRepository) GetProgress(userID uuid.UUID) ([]models.MeasurementLog, error) {
 	var logs []models.MeasurementLog
-	// Получаем от старых к новым
-	err := r.db.Where("id = ?", userID).Order("created_at asc").Find(&logs).Error
+	err := r.db.Where("user_id = ?", userID).Order("created_at asc").Find(&logs).Error
 	return logs, err
 }
 
 func (r *postgresProfileRepository) GetStats(userID uuid.UUID) (*models.UserStats, error) {
 	var user models.User
 
-	err := r.db.Select("cashed_stats").Where("id = ?", userID).First(&user).Error
+	err := r.db.Select("cached_stats").Where("id = ?", userID).First(&user).Error
 	if err != nil {
 		return nil, err
 	}

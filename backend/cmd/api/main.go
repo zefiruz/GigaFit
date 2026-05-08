@@ -117,6 +117,7 @@ func main() {
 	workout := RouteGroup(mux, "/api/v1", middleware.AuthMiddleware(cfg.JWTSecret))
 
 	workout("GET /workout/all", workoutHandler.GetAllWorkouts)
+	workout("GET /workout/system", workoutHandler.GetSystemWorkouts)
 	workout("POST /workout", workoutHandler.CreateManualWorkout)
 	workout("GET /workout/{id}", workoutHandler.GetWorkoutByID)
 	workout("PATCH /workout/{id}", workoutHandler.UpdateWorkoutMeta)
@@ -129,6 +130,7 @@ func main() {
 	plan("POST /plan", planHandler.CreateManualPlan)
 	plan("POST /plan/ai", planHandler.CreateAIPlan)
 	plan("GET /plan/all", planHandler.GetAllPlans)
+	plan("GET /plan/system", planHandler.GetAllSystemPlans)
 	plan("GET /plan/{id}", planHandler.GetPlanByID)
 	plan("PATCH /plan/{id}", planHandler.UpdatePlan)
 	plan("DELETE /plan/{id}", planHandler.DeletePlan)

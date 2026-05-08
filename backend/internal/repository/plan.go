@@ -11,9 +11,11 @@ type TrainingPlanRepository interface {
 	CreatePlan(plan *models.TrainingPlan) error
 	GetTrainingPlanByID(id uuid.UUID, userID uuid.UUID) (*models.TrainingPlan, error)
 	GetAllTrainingPlans(userID uuid.UUID) ([]models.TrainingPlan, error)
+	GetAllSystemPlans() ([]models.TrainingPlan, error)
 	
 	UpdateTrainingPlan(id uuid.UUID, userID uuid.UUID, updates map[string]interface{}) error
 	DeleteTrainingPlan(id uuid.UUID, userID uuid.UUID) error
+	HardDeletePlan(id uuid.UUID, userID uuid.UUID) error
 }
 
 type postgresTrainingPlanRepository struct {
@@ -32,7 +34,7 @@ func (r *postgresTrainingPlanRepository) GetTrainingPlanByID(id uuid.UUID, userI
 	var plan models.TrainingPlan
 
 	err := r.db.
-		Where("id = ? AND (user_id = ? OR is_public = ?)", id, userID, true).
+		Where("id = ? AND (user_id = ? OR is_system = ?)", id, userID, true).
 		Preload("Workouts").
 		Preload("Workouts.Workout").
 		Preload("Workouts.Workout.Exercises").
@@ -49,7 +51,24 @@ func (r *postgresTrainingPlanRepository) GetAllTrainingPlans(userID uuid.UUID) (
 	var plans []models.TrainingPlan
 
 	err := r.db.
-		Where("user_id = ? OR is_public = ?", userID, true).
+		Where("user_id = ? OR is_system = ?", userID, true).
+		Preload("Workouts").
+		Preload("Workouts.Workout").
+		Preload("Workouts.Workout.Exercises").
+		Preload("Workouts.Workout.Exercises.Exercise").
+		Find(&plans).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return plans, nil
+}
+
+func (r *postgresTrainingPlanRepository) GetAllSystemPlans() ([]models.TrainingPlan, error) {
+	var plans []models.TrainingPlan
+
+	err := r.db.
+		Where("is_system = ?",  true).
 		Preload("Workouts").
 		Preload("Workouts.Workout").
 		Preload("Workouts.Workout.Exercises").
@@ -70,4 +89,8 @@ func (r *postgresTrainingPlanRepository) UpdateTrainingPlan(id uuid.UUID, userID
 
 func (r *postgresTrainingPlanRepository) DeleteTrainingPlan(id uuid.UUID, userID uuid.UUID) error {
 	return r.db.Where("id = ? AND user_id = ?", id, userID).Delete(&models.TrainingPlan{}).Error
+}
+
+func (r *postgresTrainingPlanRepository) HardDeletePlan(id uuid.UUID, userID uuid.UUID) error {
+	return r.db.Unscoped().Where("id = ? AND user_id = ?", id, userID).Delete(&models.TrainingPlan{}).Error
 }

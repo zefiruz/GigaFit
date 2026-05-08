@@ -23,12 +23,37 @@ func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profile, err := h.Repo.GetProfileByID(userID)
+	user, err := h.Repo.GetProfileByID(userID)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, Response{Status: "error", Message: "Profile not found"})
 		return
 	}
-	writeJSON(w, http.StatusOK, Response{Status: "success", Data: profile})
+
+	logs, err := h.Repo.GetProgress(userID)
+	
+	currentWeight := user.InitialWeight
+	currentHeight := user.InitialHeight
+
+	if err == nil && len(logs) > 0 {
+		lastLog := logs[len(logs)-1]
+		currentWeight = lastLog.Weight
+		currentHeight = lastLog.Height
+	}
+
+	response := UserProfileResponse{
+		ID:            user.ID,
+		Username:      user.Username,
+		Email:         user.Email,
+		AvatarURL:     user.AvatarURL,
+		Gender:        user.Gender,
+		Goal:          user.Goal,
+		InitialWeight: user.InitialWeight,
+		InitialHeight: user.InitialHeight,
+		CurrentWeight: currentWeight,
+		CurrentHeight: currentHeight,
+	}
+
+	writeJSON(w, http.StatusOK, Response{Status: "success", Data: response})
 }
 
 func (h *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {

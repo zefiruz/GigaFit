@@ -50,7 +50,7 @@ func (h *ExerciseHandler) CreateExercise(w http.ResponseWriter, r *http.Request)
 		ID:          uuid.New(),
 		UserID:      &userID,
 		Name:        input.Name,
-		Status:      "custom",
+		IsSystem:    false,
 		Description: input.Description,
 		MuscleGroups: models.JSONB[models.MuscleData]{
 			Data: models.MuscleData{

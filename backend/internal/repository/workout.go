@@ -10,9 +10,12 @@ import (
 type WorkoutRepository interface {
 	CreateWorkout(workout *models.Workout) error
 	GetWorkoutByID(id uuid.UUID) (*models.Workout, error)
+	GetAllSystemWorkouts() ([]models.Workout, error)
+
 	GetAllWorkouts(userID uuid.UUID) ([]models.Workout, error)
 	UpdateWorkoutMeta(workoutID uuid.UUID, userID uuid.UUID, updates map[string]interface{}) error
 	ReplaceWorkoutExercises(workoutID uuid.UUID, userID uuid.UUID, exercises []models.WorkoutExercise) error
+
 	DeleteWorkout(id uuid.UUID, userID uuid.UUID) error
 	HardDeleteWorkout(id uuid.UUID, userID uuid.UUID) error
 
@@ -45,6 +48,18 @@ func (r *postgresWorkoutRepository) GetWorkoutByID(id uuid.UUID) (*models.Workou
 		First(&workout).Error
 
 	return &workout, err
+}
+
+func (r *postgresWorkoutRepository) GetAllSystemWorkouts() ([]models.Workout, error) {
+    var workouts []models.Workout
+
+    err := r.db.
+        Preload("Exercises").
+        Preload("Exercises.Exercise").
+        Where("is_system = ?", true).
+        Find(&workouts).Error
+
+    return workouts, err
 }
 
 func (r *postgresWorkoutRepository) GetAllWorkouts(userID uuid.UUID) ([]models.Workout, error) {
@@ -110,28 +125,12 @@ func (r *postgresWorkoutRepository) ReplaceWorkoutExercises(
 
 // 1. Обычное удаление (Soft Delete) - для Библиотеки
 func (r *postgresWorkoutRepository) DeleteWorkout(id uuid.UUID, userID uuid.UUID) error {
-	result := r.db.Where("id = ? AND user_id = ?", id, userID).Delete(&models.Workout{})
-
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
+	return r.db.Where("id = ? AND user_id = ?", id, userID).Delete(&models.Workout{}).Error
 }
 
 // 2. Полное физическое удаление (Hard Delete) - для отмены черновиков ИИ
 func (r *postgresWorkoutRepository) HardDeleteWorkout(id uuid.UUID, userID uuid.UUID) error {
-	result := r.db.Unscoped().Where("id = ? AND user_id = ?", id, userID).Delete(&models.Workout{})
-
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
+	return r.db.Unscoped().Where("id = ? AND user_id = ?", id, userID).Delete(&models.Workout{}).Error
 }
 
 func (r *postgresWorkoutRepository) IsOwner(workoutID, userID uuid.UUID) (bool, error) {

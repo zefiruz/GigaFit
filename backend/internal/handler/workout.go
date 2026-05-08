@@ -9,7 +9,6 @@ import (
 	"gigafit/service"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 type WorkoutHandler struct {
@@ -64,6 +63,7 @@ func (h *WorkoutHandler) CreateManualWorkout(w http.ResponseWriter, r *http.Requ
 		Title:            input.Title,
 		Description:      input.Description,
 		IsAIGenerated:    false,
+		IsSystem:         false,
 		TotalDurationEst: input.TotalDurationEst,
 		IsPublic:         false,
 		Exercises:        workoutExercises,
@@ -134,6 +134,7 @@ func (h *WorkoutHandler) CreateAIWorkout(w http.ResponseWriter, r *http.Request)
 		UserID:           userID,
 		Title:            aiResponse.Title,
 		Description:      aiResponse.Description,
+		IsSystem:         false,
 		IsAIGenerated:    true,
 		TotalDurationEst: 45, // можно потом тоже от ИИ считать
 		IsPublic:         false,
@@ -175,13 +176,22 @@ func (h *WorkoutHandler) GetWorkoutByID(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// 🔐 защита: чужие приватные нельзя
 	if workout.UserID != userID && !workout.IsPublic {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
 	writeJSON(w, http.StatusCreated, Response{Status: "success", Data: workout})
+}
+
+func (h *WorkoutHandler) GetSystemWorkouts(w http.ResponseWriter, r *http.Request) {
+	workouts, err := h.WorkoutRepo.GetAllSystemWorkouts()
+	if err != nil {
+		http.Error(w, "Workout not found", http.StatusNotFound)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, Response{Status: "success", Data: workouts})
 }
 
 // ================= GET ALL WORKOUTS =================
@@ -306,10 +316,9 @@ func (h *WorkoutHandler) DeleteWorkout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Достаем ID тренировки из URL
-	workoutIDStr := r.PathValue("id")
-	workoutID, err := uuid.Parse(workoutIDStr)
+	workoutID, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
-		http.Error(w, "Invalid workout ID", http.StatusBadRequest)
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Message: "Invalid workout ID"})
 		return
 	}
 
@@ -318,19 +327,16 @@ func (h *WorkoutHandler) DeleteWorkout(w http.ResponseWriter, r *http.Request) {
 
 	// 4. Вызываем нужный метод репозитория
 	if isHardDelete {
-		err = h.WorkoutRepo.HardDeleteWorkout(workoutID, userID)
-	} else {
-		err = h.WorkoutRepo.DeleteWorkout(workoutID, userID)
-	}
-
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			http.Error(w, "Workout not found", http.StatusNotFound)
+		if err := h.WorkoutRepo.HardDeleteWorkout(workoutID, userID); err != nil {
+			writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to hard delete workout"})
 			return
 		}
-		http.Error(w, "Failed to delete workout", http.StatusInternalServerError)
-		return
+	} else {
+		if err := h.WorkoutRepo.DeleteWorkout(workoutID, userID); err != nil {
+			writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to delete workout"})
+			return
+		}
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, http.StatusOK, Response{Status: "success", Message: "Workout deleted successfully"})
 }

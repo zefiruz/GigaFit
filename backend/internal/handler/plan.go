@@ -81,6 +81,7 @@ func (h *PlanHandler) CreateManualPlan(w http.ResponseWriter, r *http.Request) {
 		UserID:        userID,
 		Title:         input.Title,
 		Description:   input.Description,
+		IsSystem:      false,
 		IsPublic:      input.IsPublic,
 		DurationWeeks: input.DurationWeeks,
 		Workouts:      planWorkouts,
@@ -185,7 +186,7 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 
 		// 4.4. Сохраняем тренировку
 		if err := h.WorkoutRepo.CreateWorkout(&newWorkout); err != nil {
-			continue // Пропускаем при ошибке БД
+			continue
 		}
 
 		// 4.5. Привязываем к плану
@@ -207,8 +208,9 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 	newPlan := models.TrainingPlan{
 		ID:            planID,
 		UserID:        userID,
-		Title:         blueprint.Title,      
+		Title:         blueprint.Title,
 		Description:   blueprint.Description,
+		IsSystem:      false,
 		IsPublic:      false,
 		DurationWeeks: input.DurationWeeks,
 		Workouts:      planWorkouts,
@@ -219,7 +221,7 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 6. Достаем полный план из базы со всеми Preload-вложениями (как мы чинили раньше!)
+	// 6. Достаем полный план из базы со всеми Preload-вложениями
 	fullPlan, err := h.Repo.GetTrainingPlanByID(planID, userID)
 	if err != nil {
 		writeJSON(w, http.StatusCreated, Response{Status: "success", Data: newPlan})
@@ -237,6 +239,16 @@ func (h *PlanHandler) GetAllPlans(w http.ResponseWriter, r *http.Request) {
 	}
 
 	plans, err := h.Repo.GetAllTrainingPlans(userID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to get plans"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, Response{Status: "success", Data: plans})
+}
+
+func (h *PlanHandler) GetAllSystemPlans(w http.ResponseWriter, r *http.Request) {
+	plans, err := h.Repo.GetAllSystemPlans()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to get plans"})
 		return
@@ -317,9 +329,18 @@ func (h *PlanHandler) DeletePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Repo.DeleteTrainingPlan(planID, userID); err != nil {
-		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to delete plan"})
-		return
+	isHardDelete := r.URL.Query().Get("hard") == "true"
+
+	if isHardDelete {
+		if err := h.Repo.HardDeletePlan(planID, userID); err != nil {
+			writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to hard delete plan"})
+			return
+		}
+	} else {
+		if err := h.Repo.DeleteTrainingPlan(planID, userID); err != nil {
+			writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to delete plan"})
+			return
+		}
 	}
 
 	writeJSON(w, http.StatusOK, Response{Status: "success", Message: "Plan deleted successfully"})
