@@ -1,5 +1,5 @@
 # 1. Берем официальный образ Go
-FROM golang:1.22-alpine
+FROM golang:1.25.3-alpine
 
 # 2. Создаем главную папку на сервере
 WORKDIR /app

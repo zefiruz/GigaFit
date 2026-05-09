@@ -1,0 +1,37 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch: # Позволяет запускать сборку вручную по кнопке
+
+jobs:
+  build-ios:
+    runs-on: macos-latest # Запускаем на сервере Apple от GitHub
+
+    steps:
+      - name: Скачиваем код
+        uses: actions/checkout@v3
+
+      - name: Устанавливаем Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Скачиваем зависимости
+        run: flutter pub get
+
+      - name: Собираем iOS (без подписи)
+        run: flutter build ios --release --no-codesign
+
+      - name: Упаковываем в IPA для Sideloadly
+        run: |
+          # Команда build ios выдает папку Runner.app, а нам нужен .ipa
+          mkdir -p build/ios/iphoneos/Payload
+          mv build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
+          cd build/ios/iphoneos
+          zip -r gigafit.ipa Payload
+
+      - name: Выдаем готовый файл
+        uses: actions/upload-artifact@v4
+        with:
+          name: gigafit-ipa-file
+          path: build/ios/iphoneos/gigafit.ipa
