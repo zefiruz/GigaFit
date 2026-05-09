@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient {
-  final String baseUrl = 'http://192.168.31.69:8080/api/v1';
-  
+  // final String baseUrl = 'http://192.168.31.69:8080/api/v1';
+  final String baseUrl = 'http://gigafit-zbbn138.amvera.io/api/v1';
   //static const String baseUrl = 'http://10.0.2.2:8080';
 
   // Метод для получения токена из памяти
@@ -30,20 +30,37 @@ class ApiClient {
   }
 
   // Обновленный POST запрос (добавили параметр timeout)
-  Future<http.Response> post(String endpoint, Map<String, dynamic> body, {bool useAuth = true, Duration timeout = const Duration(seconds: 10)}) async {
+  Future<http.Response> post(
+    String endpoint,
+    Map<String, dynamic> body, {
+    bool useAuth = true,
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
     final headers = await _getHeaders(useAuth: useAuth);
     print('--- [HTTP POST] $endpoint ---');
     return await http
-        .post(Uri.parse('$baseUrl$endpoint'), headers: headers, body: jsonEncode(body))
+        .post(
+          Uri.parse('$baseUrl$endpoint'),
+          headers: headers,
+          body: jsonEncode(body),
+        )
         .timeout(timeout); // Используем переданный таймаут
   }
 
   // НОВЫЙ МЕТОД: PATCH запрос
-  Future<http.Response> patch(String endpoint, Map<String, dynamic> body, {bool useAuth = true}) async {
+  Future<http.Response> patch(
+    String endpoint,
+    Map<String, dynamic> body, {
+    bool useAuth = true,
+  }) async {
     final headers = await _getHeaders(useAuth: useAuth);
     print('--- [HTTP PATCH] $endpoint ---');
     return await http
-        .patch(Uri.parse('$baseUrl$endpoint'), headers: headers, body: jsonEncode(body))
+        .patch(
+          Uri.parse('$baseUrl$endpoint'),
+          headers: headers,
+          body: jsonEncode(body),
+        )
         .timeout(const Duration(seconds: 10));
   }
 
@@ -57,11 +74,19 @@ class ApiClient {
   }
 
   // Универсальный PUT запрос
-  Future<http.Response> put(String endpoint, Map<String, dynamic> body, {bool useAuth = true}) async {
+  Future<http.Response> put(
+    String endpoint,
+    Map<String, dynamic> body, {
+    bool useAuth = true,
+  }) async {
     final headers = await _getHeaders(useAuth: useAuth);
     print('--- [HTTP PUT] $endpoint ---');
     return await http
-        .put(Uri.parse('$baseUrl$endpoint'), headers: headers, body: jsonEncode(body))
+        .put(
+          Uri.parse('$baseUrl$endpoint'),
+          headers: headers,
+          body: jsonEncode(body),
+        )
         .timeout(const Duration(seconds: 10));
   }
 }
