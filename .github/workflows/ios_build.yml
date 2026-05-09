@@ -6,11 +6,6 @@ on:
 jobs:
   build-ios:
     runs-on: macos-latest
-    
-    # Говорим серверу: "Все команды выполняй внутри папки frontend!"
-    defaults:
-      run:
-        working-directory: ./frontend
 
     steps:
       - name: Скачиваем код
@@ -22,12 +17,15 @@ jobs:
           channel: 'stable'
 
       - name: Скачиваем зависимости
+        working-directory: ./frontend
         run: flutter pub get
 
       - name: Собираем iOS (без подписи)
+        working-directory: ./frontend
         run: flutter build ios --release --no-codesign -v
 
       - name: Упаковываем в IPA для Sideloadly
+        working-directory: ./frontend
         run: |
           mkdir -p build/ios/iphoneos/Payload
           mv build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
@@ -38,5 +36,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gigafit-ipa-file
-          # Здесь тоже указываем, что артефакт нужно забирать из папки frontend
           path: frontend/build/ios/iphoneos/gigafit.ipa
