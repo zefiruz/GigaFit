@@ -16,17 +16,22 @@ jobs:
         with:
           channel: 'stable'
 
+      - name: Смотрим, какие папки есть (для отладки)
+        run: ls -la
+
       - name: Скачиваем зависимости
-        working-directory: ./frontend
-        run: flutter pub get
+        run: |
+          cd frontend # <-- ЕСЛИ ТВОЯ ПАПКА НАЗЫВАЕТСЯ ИНАЧЕ, ПОМЕНЯЙ ЗДЕСЬ!
+          flutter pub get
 
       - name: Собираем iOS (без подписи)
-        working-directory: ./frontend
-        run: flutter build ios --release --no-codesign -v
+        run: |
+          cd frontend # <-- И ЗДЕСЬ
+          flutter build ios --release --no-codesign -v
 
       - name: Упаковываем в IPA для Sideloadly
-        working-directory: ./frontend
         run: |
+          cd frontend # <-- И ЗДЕСЬ
           mkdir -p build/ios/iphoneos/Payload
           mv build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
           cd build/ios/iphoneos
@@ -36,4 +41,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gigafit-ipa-file
-          path: frontend/build/ios/iphoneos/gigafit.ipa
+          path: frontend/build/ios/iphoneos/gigafit.ipa # <-- И ВОТ ЗДЕСЬ
