@@ -190,13 +190,15 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// 4.5. Привязываем к плану
-		planWorkouts = append(planWorkouts, models.PlanWorkout{
-			ID:         uuid.New(),
-			PlanID:     planID,
-			WorkoutID:  workoutID,
-			DayNumber:  dayNumber,
-			WeekNumber: 1,
-		})
+		for weekNum := 1; weekNum <= input.DurationWeeks; weekNum++ {
+            planWorkouts = append(planWorkouts, models.PlanWorkout{
+                ID:         uuid.New(),
+                PlanID:     planID,
+                WorkoutID:  workoutID,
+                DayNumber:  dayNumber,
+                WeekNumber: weekNum,
+            })
+        }
 	}
 
 	if len(planWorkouts) == 0 {

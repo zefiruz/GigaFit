@@ -86,4 +86,23 @@ class ProfileService {
       return null;
     }
   }
+
+  // --- 6. ПОЛУЧИТЬ СОВЕТ ОТ ИИ ---
+  Future<String?> getAiAdvice() async {
+    try {
+      final response = await _client.get('/profile/biometric-advice');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        // Забираем строку advice из объекта data
+        return data['data']['advice'];
+      } else {
+        print('Ошибка getAiAdvice: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Сетевая ошибка getAiAdvice: $e');
+      return null;
+    }
+  }
 }

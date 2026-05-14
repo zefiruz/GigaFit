@@ -47,7 +47,7 @@ func main() {
 	cfg := configs.LoadConfig()
 
 	db, err := gorm.Open(postgres.Open(cfg.DBDSN), &gorm.Config{
-		DisableForeignKeyConstraintWhenMigrating: true,
+		//DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
 		log.Fatal("Ошибка подключения к БД: ", err)
@@ -85,7 +85,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(userRepo, cfg.JWTSecret)
 	exerciseHandler := handler.NewExerciseHandler(exerciseRepo)
 	workoutHandler := handler.NewWorkoutHandler(workoutrepo, exerciseRepo, aiService)
-	profileHandler := handler.NewProfileHandler(profileRepo)
+	profileHandler := handler.NewProfileHandler(profileRepo, aiService)
 	planHandler := handler.NewPlanHandler(planRepo, aiService, exerciseRepo, workoutrepo)
 	logHandler := handler.NewLogHandler(logRepo, aiService)
 	commHandler := handler.NewCommunityHandler(communityRepo)
@@ -104,6 +104,7 @@ func main() {
 	profile("PUT /profile/anthropometry", profileHandler.UpdateAnthropometry)
 	profile("GET /profile/progress", profileHandler.GetProgress)
 	profile("GET /profile/stats", profileHandler.GetStats)
+	profile("GET /profile/biometric-advice", profileHandler.GetBiometricAdvice)
 
 	exercise := RouteGroup(mux, "/api/v1", middleware.AuthMiddleware(cfg.JWTSecret))
 
@@ -139,7 +140,7 @@ func main() {
 
 	logs("POST /log", logHandler.CreateLog)
 	logs("GET /log/all", logHandler.GetAllLogs)
-	logs("POST /log/ai-advice", logHandler.GetAIAdvice)
+	logs("POST /log/ai-advice", logHandler.GetAIAdviceAfterWorkout)
 
 	comm := RouteGroup(mux, "/api/v1", middleware.AuthMiddleware(cfg.JWTSecret))
 

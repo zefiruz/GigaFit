@@ -7,7 +7,6 @@ class PlanService {
   // --- 1. СОЗДАТЬ ПЛАН ТРЕНИРОВОК ---
   Future<bool> createPlan(Map<String, dynamic> planData) async {
     try {
-      // planData должен соответствовать структуре TrainingPlan на бэкенде
       final response = await _client.post('/plan', planData);
       return response.statusCode == 201 || response.statusCode == 200;
     } catch (e) {

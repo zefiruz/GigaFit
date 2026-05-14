@@ -75,7 +75,7 @@ func (h *LogHandler) GetAllLogs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, Response{Status: "success", Data: logs})
 }
 
-func (h *LogHandler) GetAIAdvice(w http.ResponseWriter, r *http.Request) {
+func (h *LogHandler) GetAIAdviceAfterWorkout(w http.ResponseWriter, r *http.Request) {
 	_, ok := getUserID(r)
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
@@ -98,7 +98,7 @@ func (h *LogHandler) GetAIAdvice(w http.ResponseWriter, r *http.Request) {
 		input.ActualDurationMins, input.Mood, input.Comment,
 	)
 
-	advice, err := h.GigaChatService.GenerateAdvice(prompt)
+	advice, err := h.GigaChatService.GenerateAdviceAfterWorkout(prompt)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "AI is tired right now"})
 		return

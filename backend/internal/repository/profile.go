@@ -36,10 +36,10 @@ func (r *postgresProfileRepository) GetProfileByID(id uuid.UUID) (*models.User, 
 }
 
 func (r *postgresProfileRepository) UpdateProfile(userID uuid.UUID, username string, avatarURL string) error {
-    return r.db.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
-        "username":   username,
-        "avatar_url": avatarURL,
-    }).Error
+	return r.db.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
+		"username":   username,
+		"avatar_url": avatarURL,
+	}).Error
 }
 
 func (r *postgresProfileRepository) UpdateAnthropometry(userID uuid.UUID, height, weight float64, goal string) error {

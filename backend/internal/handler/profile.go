@@ -2,18 +2,21 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"gigafit/internal/repository"
+	"gigafit/service"
 )
 
 type ProfileHandler struct {
-	Repo repository.ProfileRepository
+	Repo      repository.ProfileRepository
+	AiService service.GigaChatService
 }
 
-func NewProfileHandler(repo repository.ProfileRepository) *ProfileHandler {
-	return &ProfileHandler{Repo: repo}
+func NewProfileHandler(repo repository.ProfileRepository, aiService service.GigaChatService) *ProfileHandler {
+	return &ProfileHandler{Repo: repo, AiService: aiService}
 }
 
 func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
@@ -30,7 +33,7 @@ func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logs, err := h.Repo.GetProgress(userID)
-	
+
 	currentWeight := user.InitialWeight
 	currentHeight := user.InitialHeight
 
@@ -152,4 +155,50 @@ func (h *ProfileHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, Response{Status: "success", Data: stats})
+}
+
+func (h *ProfileHandler) GetBiometricAdvice(w http.ResponseWriter, r *http.Request) {
+	userID, ok := getUserID(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
+		return
+	}
+
+	// 1. Достаем профиль (нам нужна Цель)
+	profile, err := h.Repo.GetProfileByID(userID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Ошибка профиля"})
+		return
+	}
+
+	// 2. Достаем ИСТОРИЮ из базы (тот самый метод, что ты показывал)
+	logs, err := h.Repo.GetProgress(userID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Ошибка чтения логов"})
+		return
+	}
+
+	// 3. Защита от дурака: если логов нет вообще
+	if len(logs) == 0 {
+		writeJSON(w, http.StatusBadRequest, Response{
+			Status:  "error",
+			Message: "Для получения совета нужно добавить хотя бы один замер веса.",
+		})
+		return
+	}
+
+	// 4. Передаем весь массив логов в ИИ!
+	advice, err := h.AiService.GenerateBiometricAdvice(logs, profile.Goal)
+	if err != nil {
+		fmt.Printf("Ошибка ИИ (совет): %v\n", err)
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Нейросеть недоступна"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, Response{
+		Status: "success",
+		Data: map[string]string{
+			"advice": advice,
+		},
+	})
 }

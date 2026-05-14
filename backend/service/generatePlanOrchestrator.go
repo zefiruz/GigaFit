@@ -6,7 +6,23 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/google/uuid"
 )
+
+type AIPlanResponse struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Workouts    []struct {
+		DayNumber int    `json:"day_number"` // День недели (например, 1, 3, 5)
+		Title     string `json:"title"`      // Название конкретной тренировки (напр., "День ног")
+		Exercises []struct {
+			ID   uuid.UUID `json:"id"`
+			Sets int       `json:"sets"`
+			Reps int       `json:"reps"`
+		} `json:"exercises"`
+	} `json:"workouts"`
+}
 
 func (s *gigaChatService) GeneratePlanOrchestrator(userGoal string, daysPerWeek int) (*PlanBlueprint, error) {
 	token, err := s.getAccessToken()
@@ -14,20 +30,23 @@ func (s *gigaChatService) GeneratePlanOrchestrator(userGoal string, daysPerWeek 
 		return nil, err
 	}
 
+	var workoutsList strings.Builder
+	for i := 1; i <= daysPerWeek; i++ {
+		workoutsList.WriteString(fmt.Sprintf("Тренировка %d: [Фокус %d]\n", i, i))
+	}
 	// 1. Просим ИИ вернуть Название, Описание и список дней в виде обычного текста
 	systemPrompt := fmt.Sprintf(
 		"Ты элитный фитнес-тренер. Клиент хочет: '%s'. Разбей эту цель на %d тренировок.\n"+
 			"ОТВЕЧАЙ СТРОГО В ТАКОМ ФОРМАТЕ (каждый пункт с новой строки, без markdown и без JSON):\n"+
 			"Название: [Придумай крутое, цепляющее название плану]\n"+
 			"Описание: [Напиши 1-2 мотивирующих предложения о плане]\n"+
-			"Тренировка: [Фокус 1]\n"+
-			"Тренировка: [Фокус 2]",
-		userGoal, daysPerWeek,
+			"%s",
+		userGoal, daysPerWeek, strings.TrimSpace(workoutsList.String()),
 	)
 
 	payload := map[string]interface{}{
 		"model":       "GigaChat",
-		"temperature": 0.5, // Немного даем креатива для придумывания названия
+		"temperature": 0.5,
 		"messages": []map[string]string{
 			{"role": "system", "content": systemPrompt},
 			{"role": "user", "content": "Сгенерируй структуру плана"},

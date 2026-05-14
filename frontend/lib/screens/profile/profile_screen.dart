@@ -22,6 +22,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<double> _weightHistory = [];
   bool _isInitialLoad = true;
 
+  String? _aiAdvice;
+  bool _isLoadingAdvice = false;
+
   @override
   void initState() {
     super.initState();
@@ -70,6 +73,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         _isInitialLoad = false;
       });
+    }
+  }
+
+  Future<void> _fetchAiAdvice() async {
+    setState(() => _isLoadingAdvice = true);
+
+    final advice = await _profileService.getAiAdvice();
+
+    if (mounted) {
+      setState(() {
+        _aiAdvice = advice;
+        _isLoadingAdvice = false;
+      });
+
+      // Если бэкенд вернул ошибку, показываем снекбар
+      if (advice == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Не удалось получить совет. Добавьте больше замеров!',
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -282,7 +310,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _loadAllData,
+        onRefresh: () async {
+          // При свайпе вниз сбрасываем старый совет и грузим профиль заново
+          setState(() => _aiAdvice = null);
+          await _loadAllData();
+        },
         color: AppColors.primary,
         backgroundColor: AppColors.surface,
         child: SingleChildScrollView(
@@ -300,12 +332,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ? _buildBigButton("Заполнить данные", true)
                   : _buildBigButton("Редактировать профиль", false),
 
-              const SizedBox(height: 40),
+              const SizedBox(height: 32),
+
+              // 3. ВСТАВЛЯЕМ КАРТОЧКУ СОВЕТА ПРЯМО НАД ГРАФИКОМ
+              if (!isDataMissing) // Показываем ИИ только если юзер заполнил вес
+                _buildAiAdviceCard(),
+
+              const SizedBox(height: 24),
+
               _buildProgressChart(),
+
               const SizedBox(height: 40),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAiAdviceCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.auto_awesome,
+                color: AppColors.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                "СОВЕТ ОТ GIGAFIT AI",
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                  letterSpacing: 1.1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          if (_isLoadingAdvice)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(10.0),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
+              ),
+            )
+          else if (_aiAdvice != null)
+            Text(
+              _aiAdvice!,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 14,
+                height: 1.5,
+              ),
+            )
+          else
+            TextButton(
+              onPressed: _fetchAiAdvice,
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 0),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                "Проанализировать мой прогресс →",
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  decoration: TextDecoration.underline,
+                  decorationColor: AppColors.textSecondary,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

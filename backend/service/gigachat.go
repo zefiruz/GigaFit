@@ -10,12 +10,15 @@ import (
 	"sync"
 	"time"
 
+	"gigafit/internal/models"
+
 	"github.com/google/uuid"
 )
 
 type GigaChatService interface {
 	GenerateWorkout(userGoal string, availableExercises map[uuid.UUID]string) (*AIWorkoutResponse, error)
-	GenerateAdvice(prompt string) (string, error)
+	GenerateAdviceAfterWorkout(prompt string) (string, error)
+	GenerateBiometricAdvice(logs []models.MeasurementLog, goal string) (string, error)
 	SendMessage(messages []map[string]string) (string, error)
 	GeneratePlanOrchestrator(userGoal string, daysPerWeek int) (*PlanBlueprint, error)
 }
