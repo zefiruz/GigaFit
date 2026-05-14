@@ -6,7 +6,7 @@ class AiWorkoutPreviewScreen extends StatefulWidget {
   final dynamic workoutData;
 
   const AiWorkoutPreviewScreen({Key? key, required this.workoutData})
-      : super(key: key);
+    : super(key: key);
 
   @override
   State<AiWorkoutPreviewScreen> createState() => _AiWorkoutPreviewScreenState();
@@ -37,7 +37,11 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
         appBar: AppBar(
           title: const Text(
             'Ваша тренировка',
-            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 20),
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+              fontSize: 20,
+            ),
           ),
           backgroundColor: AppColors.background,
           elevation: 0,
@@ -53,7 +57,9 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
               decoration: BoxDecoration(
                 color: AppColors.card,
                 borderRadius: BorderRadius.circular(16), // Строгий радиус
-                border: Border.all(color: AppColors.primary.withOpacity(0.3)), // Оливковая окантовка
+                border: Border.all(
+                  color: AppColors.primary.withOpacity(0.3),
+                ), // Оливковая окантовка
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,7 +76,10 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
                     const SizedBox(height: 8),
                     Text(
                       description,
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ],
@@ -89,13 +98,18 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
 
             // Список упражнений
             ...exercises.map((ex) {
-              final info = ex['exercise_info'] ?? ex['exercise'] ?? {};
-              final exName = info['name'] ?? 'Упражнение';
-              final exDesc = info['description'] ?? 'Описание отсутствует';
-              final muscleGroups = info['muscle_groups'] ?? {};
+              final info =
+                  ex['exercise_info'] ?? ex['exercise'] ?? ex['Exercise'] ?? {};
+              final exName = info['name'] ?? info['Name'] ?? 'Упражнение';
+              final exDesc =
+                  info['description'] ??
+                  info['Description'] ??
+                  'Описание отсутствует';
+              final muscleGroups =
+                  info['muscle_groups'] ?? info['MuscleGroups'] ?? {};
 
-              final sets = ex['sets'] ?? 3;
-              final reps = ex['reps'] ?? 12;
+              final sets = ex['sets'] ?? ex['Sets'] ?? 3;
+              final reps = ex['reps'] ?? ex['Reps'] ?? 12;
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -111,7 +125,9 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
                   ],
                 ),
                 child: Theme(
-                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  data: Theme.of(
+                    context,
+                  ).copyWith(dividerColor: Colors.transparent),
                   child: ExpansionTile(
                     iconColor: AppColors.primary,
                     collapsedIconColor: AppColors.textSecondary,
@@ -135,7 +151,10 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
                     ),
                     subtitle: Text(
                       '$sets подхода по $reps повторений',
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
                     ),
                     children: [
                       Padding(
@@ -147,7 +166,9 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Divider(color: AppColors.surface), // Темный разделитель
+                            const Divider(
+                              color: AppColors.surface,
+                            ), // Темный разделитель
                             const SizedBox(height: 8),
                             const Text(
                               'ТЕХНИКА:',
@@ -215,7 +236,9 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Тренировка сохранена в "Мои тренировки"! 💪'),
+                    content: Text(
+                      'Тренировка сохранена в "Мои тренировки"! 💪',
+                    ),
                     backgroundColor: AppColors.primaryDark,
                   ),
                 );
@@ -225,10 +248,7 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
               },
               child: const Text(
                 'Добавить в мои тренировки',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 40),
@@ -249,7 +269,11 @@ class _AiWorkoutPreviewScreenState extends State<AiWorkoutPreviewScreen> {
       ),
       child: Text(
         label,
-        style: const TextStyle(color: AppColors.textPrimary, fontSize: 11, fontWeight: FontWeight.w500),
+        style: const TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }

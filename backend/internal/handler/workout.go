@@ -181,7 +181,7 @@ func (h *WorkoutHandler) GetWorkoutByID(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, Response{Status: "success", Data: workout})
+	writeJSON(w, http.StatusOK, Response{Status: "success", Data: workout})
 }
 
 func (h *WorkoutHandler) GetSystemWorkouts(w http.ResponseWriter, r *http.Request) {

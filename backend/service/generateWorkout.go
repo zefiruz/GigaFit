@@ -28,7 +28,6 @@ func (s *gigaChatService) GenerateWorkout(userGoal string, availableExercises ma
 		return nil, fmt.Errorf("ошибка токена: %w", err)
 	}
 
-	// 1. ОПТИМИЗАЦИЯ: Builder + Короткие ID
 	shortToUUID := make(map[int]uuid.UUID)
 	var exercisesBuilder strings.Builder
 
@@ -39,14 +38,27 @@ func (s *gigaChatService) GenerateWorkout(userGoal string, availableExercises ma
 		counter++
 	}
 
-	// 2. УЛЬТРА-КОРОТКИЙ ПРОМПТ
+	// 1. ПРОМПТ
 	systemPrompt := fmt.Sprintf(
-		"Ты тренер. Составь тренировку (5-6 упр) из списка:\n%s\n"+
-			"ОТВЕЧАЙ СТРОГО ПО ШАБЛОНУ (без лишних слов):\n"+
-			"Название: [Крутое название]\n"+
-			"Описание: [Коротко о фокусе]\n"+
-			"[ID упражнения]|[Подходы]|[Повторения]\n"+
-			"[ID]|[Подходы]|[Повторения]",
+		"Ты фитнес-тренер. ВЫБЕРИ РОВНО 5 ИЛИ 6 УПРАЖНЕНИЙ из списка ниже, которые лучше всего подходят под цель пользователя.\nСписок:\n%s\n"+
+			"ОТВЕЧАЙ СТРОГО ПО ШАБЛОНУ:\n"+
+			"Название: Твое название\n"+
+			"Описание: Твое описание\n"+
+			"ID|Подходы|Повторения\n\n"+
+			"ПРИМЕР ОТВЕТА:\n"+
+			"Название: Мощная грудь\n"+
+			"Описание: Базовый комплекс для верха тела\n"+
+			"1|3|12\n"+
+			"4|4|8\n"+
+			"7|3|15\n"+
+			"9|3|10\n"+
+			"2|4|12\n\n"+
+			"ПРАВИЛА:\n"+
+			"1. ВЫДАЙ СТРОГО ОТ 5 ДО 6 СТРОК С УПРАЖНЕНИЯМИ! Не используй весь список!\n"+
+			"2. НИКАКИХ СКОБОК [ ] в ответе!\n"+
+			"3. НИКАКИХ ДИАПАЗОНОВ (пиши 12, а не 8-12).\n"+
+			"4. НИКАКОГО ТЕКСТА в цифрах (пиши 30, а не 30 сек).\n"+
+			"5. Строго 3 числа через черту |",
 		strings.TrimSpace(exercisesBuilder.String()),
 	)
 
@@ -88,13 +100,33 @@ func (s *gigaChatService) GenerateWorkout(userGoal string, availableExercises ma
 	}
 
 	aiContent := chatRes.Choices[0].Message.Content
+	aiContent = strings.ReplaceAll(aiContent, "```text", "")
+	aiContent = strings.ReplaceAll(aiContent, "```", "")
 
-	// 3. ПАРСИНГ МИКРО-ФОРМАТА
+	// Вспомогательная функция, которая вытаскивает ПЕРВОЕ число из строки
+	extractFirstNum := func(s string) (int, error) {
+		var numStr string
+		for _, r := range s {
+			if r >= '0' && r <= '9' {
+				numStr += string(r)
+			} else if len(numStr) > 0 {
+				break // Останавливаемся, как только цифры закончились
+			}
+		}
+		if numStr == "" {
+			return 0, fmt.Errorf("нет цифр")
+		}
+		return strconv.Atoi(numStr)
+	}
+
 	var finalRes AIWorkoutResponse
 	lines := strings.Split(aiContent, "\n")
 
 	for _, line := range lines {
-		cleanLine := strings.TrimSpace(line)
+		cleanLine := strings.ReplaceAll(line, "[", "")
+		cleanLine = strings.ReplaceAll(cleanLine, "]", "")
+		cleanLine = strings.TrimSpace(cleanLine)
+
 		if cleanLine == "" {
 			continue
 		}
@@ -104,20 +136,20 @@ func (s *gigaChatService) GenerateWorkout(userGoal string, availableExercises ma
 		} else if strings.HasPrefix(cleanLine, "Описание:") {
 			finalRes.Description = strings.TrimSpace(strings.TrimPrefix(cleanLine, "Описание:"))
 		} else {
-			// Ожидаем строку вида "1|3|12"
 			parts := strings.Split(cleanLine, "|")
-			if len(parts) == 3 {
-				// Конвертируем строки в числа
-				id, err1 := strconv.Atoi(strings.TrimSpace(parts[0]))
-				sets, err2 := strconv.Atoi(strings.TrimSpace(parts[1]))
-				reps, err3 := strconv.Atoi(strings.TrimSpace(parts[2]))
+			if len(parts) >= 3 {
+				idStr := parts[0]
+				setsStr := parts[len(parts)-2]
+				repsStr := parts[len(parts)-1]
 
-				// Если ИИ ошибся и выдал текст вместо цифр — игнорируем эту строчку
+				id, err1 := extractFirstNum(idStr)
+				sets, err2 := extractFirstNum(setsStr)
+				reps, err3 := extractFirstNum(repsStr)
+
 				if err1 != nil || err2 != nil || err3 != nil {
 					continue
 				}
 
-				// Восстанавливаем UUID
 				if realUUID, exists := shortToUUID[id]; exists {
 					finalRes.Exercises = append(finalRes.Exercises, struct {
 						ID   uuid.UUID `json:"id"`
@@ -133,7 +165,6 @@ func (s *gigaChatService) GenerateWorkout(userGoal string, availableExercises ma
 		}
 	}
 
-	// Базовая проверка, что ИИ выдал хоть что-то адекватное
 	if finalRes.Title == "" || len(finalRes.Exercises) == 0 {
 		return nil, fmt.Errorf("ИИ вернул пустой или неверный ответ: \n%s", aiContent)
 	}

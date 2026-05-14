@@ -1,20 +1,108 @@
 import 'package:flutter/material.dart';
 import '../../widgets/theme.dart';
+import '../../services/workout_service.dart'; // ВАЖНО: добавили сервис!
 
-class WorkoutDetailScreen extends StatelessWidget {
+class WorkoutDetailScreen extends StatefulWidget {
   final dynamic workoutData;
 
   const WorkoutDetailScreen({Key? key, required this.workoutData})
     : super(key: key);
 
   @override
+  State<WorkoutDetailScreen> createState() => _WorkoutDetailScreenState();
+}
+
+class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
+  bool _isLoading = false;
+  Map<String, dynamic> _currentData = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _currentData = widget.workoutData ?? {};
+    _checkAndFetchData();
+  }
+
+  // Тот самый "Умный" метод догрузки
+  Future<void> _checkAndFetchData() async {
+    print('=== [DEBUG WORKOUT] Открыт экран тренировки ===');
+    print('=== [DEBUG WORKOUT] Входящие данные (огрызок): $_currentData');
+
+    final List ex =
+        _currentData['exercises'] ?? _currentData['Exercises'] ?? [];
+    if (ex.isNotEmpty) {
+      print(
+        '=== [DEBUG WORKOUT] Упражнения уже есть! Догрузка не нужна. Количество: ${ex.length}',
+      );
+      return;
+    }
+
+    print('=== [DEBUG WORKOUT] Упражнений нет. Ищу ID тренировки... ===');
+
+    // Ищем ID по всем возможным ключам
+    final String? workoutId =
+        _currentData['workout_id'] ??
+        _currentData['WorkoutID'] ??
+        _currentData['id'] ??
+        _currentData['ID'];
+
+    print('=== [DEBUG WORKOUT] Найденный ID: $workoutId ===');
+
+    if (workoutId != null && workoutId.isNotEmpty) {
+      setState(() => _isLoading = true);
+      print('=== [DEBUG WORKOUT] Делаю запрос к API: /workout/$workoutId ===');
+
+      final fetchedWorkout = await WorkoutService().getWorkoutById(workoutId);
+
+      print('=== [DEBUG WORKOUT] Ответ от API получен: $fetchedWorkout ===');
+
+      if (mounted) {
+        setState(() {
+          if (fetchedWorkout != null) {
+            _currentData = fetchedWorkout;
+            print('=== [DEBUG WORKOUT] Данные успешно обновлены! ===');
+          } else {
+            print('=== [DEBUG WORKOUT] ОШИБКА: API вернул null! ===');
+          }
+          _isLoading = false;
+        });
+      }
+    } else {
+      print(
+        '=== [DEBUG WORKOUT] ОШИБКА: ID тренировки равен null или пуст! Я не могу сделать запрос. ===',
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Безопасно достаем данные
-    final safeData = workoutData ?? {};
+    // Если идет догрузка - показываем индикатор
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text(
+            'Загрузка...',
+            style: TextStyle(color: AppColors.textPrimary),
+          ),
+          backgroundColor: AppColors.background,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+
+    // РАБОТАЕМ С ПОЛНЫМИ ДАННЫМИ
+    final safeData = _currentData;
     final title = safeData['title'] ?? safeData['Title'] ?? 'Тренировка';
-    final description = safeData['description'] ?? safeData['Description'] ?? '';
+    final description =
+        safeData['description'] ?? safeData['Description'] ?? '';
     final List exercises = safeData['exercises'] ?? safeData['Exercises'] ?? [];
-    final bool isAi = safeData['is_ai_generated'] ?? false;
+    final bool isAi =
+        safeData['is_ai_generated'] ?? safeData['IsAIGenerated'] ?? false;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -22,9 +110,9 @@ class WorkoutDetailScreen extends StatelessWidget {
         title: const Text(
           'Детали тренировки',
           style: TextStyle(
-            color: AppColors.textPrimary, 
-            fontWeight: FontWeight.w600, 
-            fontSize: 20
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
           ),
         ),
         backgroundColor: AppColors.background,
@@ -42,7 +130,8 @@ class WorkoutDetailScreen extends StatelessWidget {
               color: AppColors.card,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: (isAi ? AppColors.primary : AppColors.personal).withOpacity(0.3)
+                color: (isAi ? AppColors.primary : AppColors.personal)
+                    .withOpacity(0.3),
               ),
             ),
             child: Column(
@@ -73,9 +162,9 @@ class WorkoutDetailScreen extends StatelessWidget {
                   Text(
                     description,
                     style: const TextStyle(
-                      color: AppColors.textSecondary, 
+                      color: AppColors.textSecondary,
                       fontSize: 14,
-                      height: 1.4
+                      height: 1.4,
                     ),
                   ),
                 ],
@@ -93,15 +182,30 @@ class WorkoutDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
+          // Защита, если ИИ реально выдал 0 упражнений
+          if (exercises.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'Упражнения не найдены',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+
           // Список упражнений
           ...exercises.map((ex) {
-            final info = ex['exercise_info'] ?? ex['exercise'] ?? {};
-            final exName = info['name'] ?? 'Упражнение';
-            final exDesc = info['description'] ?? 'Описание отсутствует';
-            final muscleGroups = info['muscle_groups'] ?? {};
+            final info =
+                ex['exercise_info'] ?? ex['exercise'] ?? ex['Exercise'] ?? {};
+            final exName = info['name'] ?? info['Name'] ?? 'Упражнение';
+            final exDesc =
+                info['description'] ??
+                info['Description'] ??
+                'Описание отсутствует';
+            final muscleGroups =
+                info['muscle_groups'] ?? info['MuscleGroups'] ?? {};
 
-            final sets = ex['sets'] ?? 3;
-            final reps = ex['reps'] ?? 12;
+            final sets = ex['sets'] ?? ex['Sets'] ?? 3;
+            final reps = ex['reps'] ?? ex['Reps'] ?? 12;
 
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
@@ -111,7 +215,9 @@ class WorkoutDetailScreen extends StatelessWidget {
                 border: Border.all(color: AppColors.surface),
               ),
               child: Theme(
-                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                data: Theme.of(
+                  context,
+                ).copyWith(dividerColor: Colors.transparent),
                 child: ExpansionTile(
                   iconColor: AppColors.primary,
                   collapsedIconColor: AppColors.textSecondary,
@@ -135,11 +241,18 @@ class WorkoutDetailScreen extends StatelessWidget {
                   ),
                   subtitle: Text(
                     '$sets подхода по $reps повторений',
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
                   ),
                   children: [
                     Padding(
-                      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
+                      padding: const EdgeInsets.only(
+                        left: 20,
+                        right: 20,
+                        bottom: 20,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -199,7 +312,7 @@ class WorkoutDetailScreen extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 18),
               backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white, // Белый текст для строгости
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -239,9 +352,9 @@ class WorkoutDetailScreen extends StatelessWidget {
       child: Text(
         label,
         style: const TextStyle(
-          color: AppColors.textPrimary, 
+          color: AppColors.textPrimary,
           fontSize: 11,
-          fontWeight: FontWeight.w500
+          fontWeight: FontWeight.w500,
         ),
       ),
     );

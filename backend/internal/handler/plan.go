@@ -136,9 +136,28 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 	planID := uuid.New()
 	var planWorkouts []models.PlanWorkout
 
+	scheduleMap := map[int][]int{
+		1: {1},
+		2: {1, 4},
+		3: {1, 3, 5},
+		4: {1, 2, 4, 5},
+		5: {1, 2, 3, 5, 6},
+		6: {1, 2, 3, 4, 5, 6},
+		7: {1, 2, 3, 4, 5, 6, 7},
+	}
+
+	// Получаем расписание под наш запрос
+	daysSchedule := scheduleMap[input.DaysPerWeek]
+	if len(daysSchedule) == 0 {
+		daysSchedule = scheduleMap[3]
+	}
+
 	// 4. ЦИКЛ ГЕНЕРАЦИИ: Проходимся по каждому придуманному дню
 	for i, dailyGoal := range blueprint.DailyGoals {
 		dayNumber := i + 1
+		if i < len(daysSchedule) {
+			dayNumber = daysSchedule[i]
+		}
 
 		var aiWorkout *service.AIWorkoutResponse
 		var err error
@@ -191,14 +210,14 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 
 		// 4.5. Привязываем к плану
 		for weekNum := 1; weekNum <= input.DurationWeeks; weekNum++ {
-            planWorkouts = append(planWorkouts, models.PlanWorkout{
-                ID:         uuid.New(),
-                PlanID:     planID,
-                WorkoutID:  workoutID,
-                DayNumber:  dayNumber,
-                WeekNumber: weekNum,
-            })
-        }
+			planWorkouts = append(planWorkouts, models.PlanWorkout{
+				ID:         uuid.New(),
+				PlanID:     planID,
+				WorkoutID:  workoutID,
+				DayNumber:  dayNumber,
+				WeekNumber: weekNum,
+			})
+		}
 	}
 
 	if len(planWorkouts) == 0 {
