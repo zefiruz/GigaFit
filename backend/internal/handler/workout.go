@@ -1,65 +1,77 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"time"
 
 	"gigafit/internal/models"
 	"gigafit/internal/repository"
 	"gigafit/service"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 type WorkoutHandler struct {
 	WorkoutRepo  repository.WorkoutRepository
 	ExersiceRepo repository.ExerciseRepository
 	AiService    service.GigaChatService
+	Rdb          redis.Client
 }
 
-func NewWorkoutHandler(workoutRepo repository.WorkoutRepository, exerciseRepo repository.ExerciseRepository, aiService service.GigaChatService) *WorkoutHandler {
+func NewWorkoutHandler(workoutRepo repository.WorkoutRepository, exerciseRepo repository.ExerciseRepository, aiService service.GigaChatService, rdb redis.Client) *WorkoutHandler {
 	return &WorkoutHandler{
 		WorkoutRepo:  workoutRepo,
 		ExersiceRepo: exerciseRepo,
 		AiService:    aiService,
+		Rdb:          rdb,
 	}
 }
 
+// ================= CREATE WORKOUTS =================
+
 func (h *WorkoutHandler) CreateManualWorkout(w http.ResponseWriter, r *http.Request) {
+	userID, ok := getUserID(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
+		return
+	}
+
 	var input struct {
 		Title            string `json:"title"`
 		Description      string `json:"description"`
 		TotalDurationEst int    `json:"total_duration_est"`
 		Exercises        []struct {
-			ID   uuid.UUID `json:"id"`
-			Sets int       `json:"sets"`
-			Reps int       `json:"reps"`
+			ExerciseID uuid.UUID `json:"exercise_id"` 
+			Sets       int       `json:"sets"`
+			Reps       int       `json:"reps"`
 		} `json:"exercises"`
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&input)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Некорректный JSON", http.StatusBadRequest)
 		return
 	}
 
-	workoutID := uuid.New()
-
+	previewID := uuid.New()
 	var workoutExercises []models.WorkoutExercise
 
 	for i, ex := range input.Exercises {
 		workoutExercises = append(workoutExercises, models.WorkoutExercise{
-			ID:         uuid.New(), // Генерируем ID для самой связи
-			WorkoutID:  workoutID,  // Привязываем к нашей новой тренировке
-			ExerciseID: ex.ID,      // ID самого упражнения из базы
-			OrderIndex: i,          // Опционально: сохраняем порядок (0, 1, 2...)
-			Sets:       ex.Sets,    // Используем значения из входных данных
-			Reps:       ex.Reps,    // Используем значения из входных данных
+			ID:         uuid.New(),
+			WorkoutID:  previewID,
+			ExerciseID: ex.ExerciseID,
+			OrderIndex: i,
+			Sets:       ex.Sets,
+			Reps:       ex.Reps,
 		})
 	}
 
 	newWorkout := models.Workout{
-		ID:               workoutID,
+		ID:               previewID,
 		Title:            input.Title,
 		Description:      input.Description,
 		IsAIGenerated:    false,
@@ -69,24 +81,27 @@ func (h *WorkoutHandler) CreateManualWorkout(w http.ResponseWriter, r *http.Requ
 		Exercises:        workoutExercises,
 	}
 
-	err = h.WorkoutRepo.CreateWorkout(&newWorkout)
-	if err != nil {
-		http.Error(w, "Ошибка при сохранении тренировки", http.StatusInternalServerError)
-		return
-	}
+	workoutJSON, _ := json.Marshal(newWorkout)
+	draftKey := fmt.Sprintf("draft:workout:user:%s:preview:%s", userID.String(), previewID.String())
 
-	writeJSON(w, http.StatusCreated, Response{Status: "success", Data: newWorkout})
+	h.Rdb.Set(context.Background(), draftKey, workoutJSON, 30*time.Minute)
+
+	writeJSON(w, http.StatusCreated, Response{
+		Status: "success",
+		Data: map[string]interface{}{
+			"preview_id": previewID,
+			"workout":    newWorkout,
+		},
+	})
 }
 
 func (h *WorkoutHandler) CreateAIWorkout(w http.ResponseWriter, r *http.Request) {
-	// 1. userID из контекста
 	userID, ok := getUserID(r)
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
 		return
 	}
 
-	// 2. Получаем цель из запроса
 	var req struct {
 		Goal string `json:"goal"`
 	}
@@ -95,7 +110,6 @@ func (h *WorkoutHandler) CreateAIWorkout(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// 3. Получаем доступные упражнения из БД
 	exercises, err := h.ExersiceRepo.GetAllExercises(userID)
 	if err != nil {
 		http.Error(w, "Failed to fetch exercises: "+err.Error(), http.StatusInternalServerError)
@@ -107,21 +121,19 @@ func (h *WorkoutHandler) CreateAIWorkout(w http.ResponseWriter, r *http.Request)
 		availableExercises[ex.ID] = ex.Name
 	}
 
-	// 4. Генерация тренировки через GigaChat
 	aiResponse, err := h.AiService.GenerateWorkout(req.Goal, availableExercises)
 	if err != nil {
 		http.Error(w, "AI generation failed: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// 5. Собираем workout
-	workoutID := uuid.New()
+	previewID := uuid.New()
 	var workoutExercises []models.WorkoutExercise
 
 	for i, ex := range aiResponse.Exercises {
 		workoutExercises = append(workoutExercises, models.WorkoutExercise{
 			ID:         uuid.New(),
-			WorkoutID:  workoutID,
+			WorkoutID:  previewID,
 			ExerciseID: ex.ID,
 			OrderIndex: i,
 			Sets:       ex.Sets,
@@ -130,32 +142,76 @@ func (h *WorkoutHandler) CreateAIWorkout(w http.ResponseWriter, r *http.Request)
 	}
 
 	newWorkout := models.Workout{
-		ID:               workoutID,
+		ID:               previewID,
 		UserID:           userID,
 		Title:            aiResponse.Title,
 		Description:      aiResponse.Description,
 		IsSystem:         false,
 		IsAIGenerated:    true,
-		TotalDurationEst: 45, // можно потом тоже от ИИ считать
+		TotalDurationEst: 45,
 		IsPublic:         false,
 		Exercises:        workoutExercises,
 	}
 
-	// 6. Сохраняем
-	if err := h.WorkoutRepo.CreateWorkout(&newWorkout); err != nil {
-		http.Error(w, "Save error", http.StatusInternalServerError)
+	workoutJSON, _ := json.Marshal(newWorkout)
+	draftKey := fmt.Sprintf("draft:workout:user:%s:preview:%s", userID.String(), previewID.String())
+
+	h.Rdb.Set(context.Background(), draftKey, workoutJSON, 30*time.Minute)
+
+	writeJSON(w, http.StatusCreated, Response{
+		Status: "success",
+		Data: map[string]interface{}{
+			"preview_id": previewID,
+			"workout":    newWorkout,
+		},
+	})
+}
+
+func (h *WorkoutHandler) ConfirmWorkout(w http.ResponseWriter, r *http.Request) {
+	userID, ok := getUserID(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, Response{Status: "error", Message: "Unauthorized"})
 		return
 	}
 
-	fullWorkout, err := h.WorkoutRepo.GetWorkoutByID(workoutID)
-	if err != nil {
-		fullWorkout = &newWorkout
+	var input struct {
+		PreviewID string `json:"preview_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil || input.PreviewID == "" {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
 	}
 
-	writeJSON(w, http.StatusCreated, Response{Status: "success", Data: fullWorkout})
+	draftKey := fmt.Sprintf("draft:workout:user:%s:preview:%s", userID.String(), input.PreviewID)
+
+	draftData, err := h.Rdb.Get(r.Context(), draftKey).Result()
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, Response{Status: "error", Message: "Draft expired or not found"})
+		return
+	}
+
+	var workout models.Workout
+	if err := json.Unmarshal([]byte(draftData), &workout); err != nil {
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to parse draft"})
+		return
+	}
+
+	workout.UserID = userID
+
+	if err := h.WorkoutRepo.CreateWorkout(&workout); err != nil {
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to save workout to DB"})
+		return
+	}
+
+	listKey := fmt.Sprintf("workouts:user:%s", userID.String())
+
+	h.Rdb.Del(context.Background(), draftKey, listKey)
+
+	writeJSON(w, http.StatusCreated, Response{Status: "success", Message: "Workout saved permanently", Data: workout})
 }
 
-// ================= GET WORKOUT BY ID =================
+// ================= GET WORKOUTS (WITH CACHE) =================
+
 func (h *WorkoutHandler) GetWorkoutByID(w http.ResponseWriter, r *http.Request) {
 	userID, ok := getUserID(r)
 	if !ok {
@@ -170,31 +226,49 @@ func (h *WorkoutHandler) GetWorkoutByID(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	workout, err := h.WorkoutRepo.GetWorkoutByID(id)
+	cacheKey := fmt.Sprintf("workouts:user:%s:id:%s", userID.String(), idStr)
+
+	responseData, err := GetWithCache(r.Context(), &h.Rdb, cacheKey, 10*time.Minute, func() (interface{}, error) {
+		workout, dbErr := h.WorkoutRepo.GetWorkoutByID(id)
+		if dbErr != nil {
+			return nil, dbErr
+		}
+
+		if workout.UserID != userID && !workout.IsPublic {
+			return nil, fmt.Errorf("forbidden")
+		}
+		return workout, nil
+	})
 	if err != nil {
+		if err.Error() == "forbidden" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
 		http.Error(w, "Workout not found", http.StatusNotFound)
 		return
 	}
 
-	if workout.UserID != userID && !workout.IsPublic {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, Response{Status: "success", Data: workout})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseData)
 }
 
 func (h *WorkoutHandler) GetSystemWorkouts(w http.ResponseWriter, r *http.Request) {
-	workouts, err := h.WorkoutRepo.GetAllSystemWorkouts()
+	cacheKey := "workouts:system:all"
+
+	responseData, err := GetWithCache(r.Context(), &h.Rdb, cacheKey, 24*time.Hour, func() (interface{}, error) {
+		return h.WorkoutRepo.GetAllSystemWorkouts()
+	})
 	if err != nil {
-		http.Error(w, "Workout not found", http.StatusNotFound)
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to fetch system workouts"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, Response{Status: "success", Data: workouts})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseData)
 }
 
-// ================= GET ALL WORKOUTS =================
 func (h *WorkoutHandler) GetAllWorkouts(w http.ResponseWriter, r *http.Request) {
 	userID, ok := getUserID(r)
 	if !ok {
@@ -202,13 +276,19 @@ func (h *WorkoutHandler) GetAllWorkouts(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	workouts, err := h.WorkoutRepo.GetAllWorkouts(userID)
+	cacheKey := fmt.Sprintf("workouts:user:%s", userID.String())
+
+	responseData, err := GetWithCache(r.Context(), &h.Rdb, cacheKey, 10*time.Minute, func() (interface{}, error) {
+		return h.WorkoutRepo.GetAllWorkouts(userID)
+	})
 	if err != nil {
-		http.Error(w, "Failed to fetch workouts", http.StatusInternalServerError)
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to fetch workouts"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, Response{Status: "success", Data: workouts})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseData)
 }
 
 // ================= UPDATE WORKOUT =================
@@ -220,7 +300,11 @@ func (h *WorkoutHandler) UpdateWorkoutMeta(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	id, _ := uuid.Parse(r.PathValue("id"))
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
 
 	var input struct {
 		Title            *string `json:"title"`
@@ -259,6 +343,11 @@ func (h *WorkoutHandler) UpdateWorkoutMeta(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	listKey := fmt.Sprintf("workouts:user:%s", userID.String())
+	detailKey := fmt.Sprintf("workouts:user:%s:id:%s", userID.String(), id.String())
+
+	h.Rdb.Del(context.Background(), listKey, detailKey)
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -269,7 +358,11 @@ func (h *WorkoutHandler) UpdateWorkoutExercises(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	workoutID, _ := uuid.Parse(r.PathValue("id"))
+	workoutID, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
 
 	var input struct {
 		Exercises []struct {
@@ -304,10 +397,16 @@ func (h *WorkoutHandler) UpdateWorkoutExercises(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	listKey := fmt.Sprintf("workouts:user:%s", userID.String())
+	detailKey := fmt.Sprintf("workouts:user:%s:id:%s", userID.String(), workoutID.String())
+
+	h.Rdb.Del(context.Background(), listKey, detailKey)
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
 // ================= DELETE WORKOUT =================
+
 func (h *WorkoutHandler) DeleteWorkout(w http.ResponseWriter, r *http.Request) {
 	userID, ok := getUserID(r)
 	if !ok {
@@ -315,17 +414,14 @@ func (h *WorkoutHandler) DeleteWorkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Достаем ID тренировки из URL
 	workoutID, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Message: "Invalid workout ID"})
 		return
 	}
 
-	// 3. ПРОВЕРЯЕМ ПАРАМЕТР ?hard=true ИЗ URL
 	isHardDelete := r.URL.Query().Get("hard") == "true"
 
-	// 4. Вызываем нужный метод репозитория
 	if isHardDelete {
 		if err := h.WorkoutRepo.HardDeleteWorkout(workoutID, userID); err != nil {
 			writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to hard delete workout"})
@@ -337,6 +433,11 @@ func (h *WorkoutHandler) DeleteWorkout(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	listKey := fmt.Sprintf("workouts:user:%s", userID.String())
+	detailKey := fmt.Sprintf("workouts:user:%s:id:%s", userID.String(), workoutID.String())
+
+	h.Rdb.Del(context.Background(), listKey, detailKey)
 
 	writeJSON(w, http.StatusOK, Response{Status: "success", Message: "Workout deleted successfully"})
 }

@@ -1,12 +1,15 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"gigafit/internal/middleware"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 // Response — стандартная структура ответа для всего API
@@ -40,4 +43,25 @@ func writeJSON(w http.ResponseWriter, status int, resp Response) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func GetWithCache(ctx context.Context, rdb *redis.Client, cacheKey string, ttl time.Duration, fetcher func() (interface{}, error)) ([]byte, error) {
+	cachedData, err := rdb.Get(ctx, cacheKey).Bytes()
+	if err == nil {
+		return cachedData, nil
+	}
+
+	data, err := fetcher()
+	if err != nil {
+		return nil, err 
+	}
+
+	responseJSON, err := json.Marshal(Response{Status: "success", Data: data})
+	if err != nil {
+		return nil, err
+	}
+
+	rdb.Set(context.Background(), cacheKey, responseJSON, ttl)
+
+	return responseJSON, nil
 }

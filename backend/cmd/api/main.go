@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,6 +16,8 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+
+	"github.com/redis/go-redis/v9"
 )
 
 func RouteGroup(mux *http.ServeMux, prefix string, middlewares ...func(http.Handler) http.Handler) func(string, http.HandlerFunc) {
@@ -47,7 +50,7 @@ func main() {
 	cfg := configs.LoadConfig()
 
 	db, err := gorm.Open(postgres.Open(cfg.DBDSN), &gorm.Config{
-		//DisableForeignKeyConstraintWhenMigrating: true,
+		// DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
 		log.Fatal("Ошибка подключения к БД: ", err)
@@ -71,6 +74,16 @@ func main() {
 		log.Fatal("Ошибка миграции таблиц: ", err)
 	}
 
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+	})
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		log.Fatal("Ошибка подключения к Redis: ", err)
+	}
+	fmt.Println("Успешное подключение к Redis!")
+
 	userRepo := repository.NewUserRepository(db)
 	exerciseRepo := repository.NewExerciseRepository(db)
 	workoutrepo := repository.NewWorkoutRepository(db)
@@ -84,7 +97,7 @@ func main() {
 
 	authHandler := handler.NewAuthHandler(userRepo, cfg.JWTSecret)
 	exerciseHandler := handler.NewExerciseHandler(exerciseRepo)
-	workoutHandler := handler.NewWorkoutHandler(workoutrepo, exerciseRepo, aiService)
+	workoutHandler := handler.NewWorkoutHandler(workoutrepo, exerciseRepo, aiService, *rdb)
 	profileHandler := handler.NewProfileHandler(profileRepo, aiService)
 	planHandler := handler.NewPlanHandler(planRepo, aiService, exerciseRepo, workoutrepo)
 	logHandler := handler.NewLogHandler(logRepo, aiService)
