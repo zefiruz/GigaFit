@@ -96,13 +96,13 @@ func main() {
 	aiService := service.NewGigaChatService(cfg.GigaChatSecret)
 
 	authHandler := handler.NewAuthHandler(userRepo, cfg.JWTSecret)
-	exerciseHandler := handler.NewExerciseHandler(exerciseRepo)
-	workoutHandler := handler.NewWorkoutHandler(workoutrepo, exerciseRepo, aiService, *rdb)
-	profileHandler := handler.NewProfileHandler(profileRepo, aiService)
-	planHandler := handler.NewPlanHandler(planRepo, aiService, exerciseRepo, workoutrepo)
-	logHandler := handler.NewLogHandler(logRepo, aiService)
+	exerciseHandler := handler.NewExerciseHandler(exerciseRepo, rdb)
+	workoutHandler := handler.NewWorkoutHandler(workoutrepo, exerciseRepo, aiService, rdb)
+	profileHandler := handler.NewProfileHandler(profileRepo, aiService, rdb)
+	planHandler := handler.NewPlanHandler(planRepo, aiService, exerciseRepo, workoutrepo, rdb)
+	logHandler := handler.NewLogHandler(logRepo, aiService, rdb)
 	commHandler := handler.NewCommunityHandler(communityRepo)
-	chatHandler := handler.NewChatHandler(chatRepo, profileRepo, aiService)
+	chatHandler := handler.NewChatHandler(chatRepo, profileRepo, aiService, rdb)
 
 	mux := http.NewServeMux()
 

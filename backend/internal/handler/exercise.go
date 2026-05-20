@@ -1,25 +1,32 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"strings"
+	"time"
 
 	"gigafit/internal/models"
 	"gigafit/internal/repository"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 type ExerciseHandler struct {
 	Repo repository.ExerciseRepository
+	Rdb  *redis.Client
 }
 
-func NewExerciseHandler(repo repository.ExerciseRepository) *ExerciseHandler {
-	return &ExerciseHandler{Repo: repo}
+func NewExerciseHandler(repo repository.ExerciseRepository, rdb *redis.Client) *ExerciseHandler {
+	return &ExerciseHandler{
+		Repo: repo,
+		Rdb:  rdb,
+	}
 }
-
-// ====== HANDLERS ======
 
 func (h *ExerciseHandler) CreateExercise(w http.ResponseWriter, r *http.Request) {
 	userID, ok := getUserID(r)
@@ -67,6 +74,9 @@ func (h *ExerciseHandler) CreateExercise(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	listKey := fmt.Sprintf("exercises:user:%s", userID.String())
+	h.Rdb.Del(context.Background(), listKey)
+
 	writeJSON(w, http.StatusCreated, Response{
 		Status: "success",
 		Data:   exercise,
@@ -86,16 +96,31 @@ func (h *ExerciseHandler) GetExerciseByID(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	exercise, err := h.Repo.GetExerciseByID(id, userID)
+	cacheKey := fmt.Sprintf("exercises:%s", id)
+
+	responseData, err := GetWithCache(r.Context(), h.Rdb, cacheKey, 10*time.Minute, func() (interface{}, error) {
+		exercise, dbErr := h.Repo.GetExerciseByID(id, userID)
+		if dbErr != nil {
+			return nil, dbErr
+		}
+
+		if *exercise.UserID != userID {
+			return nil, fmt.Errorf("forbidden")
+		}
+		return exercise, nil
+	})
 	if err != nil {
-		writeJSON(w, http.StatusNotFound, Response{Status: "error", Message: "Exercise not found"})
+		if err.Error() == "forbidden" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		http.Error(w, "Workout not found", http.StatusNotFound)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, Response{
-		Status: "success",
-		Data:   exercise,
-	})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseData)
 }
 
 func (h *ExerciseHandler) GetAllExercises(w http.ResponseWriter, r *http.Request) {
@@ -105,17 +130,19 @@ func (h *ExerciseHandler) GetAllExercises(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	exercises, err := h.Repo.GetAllExercises(userID)
+	cacheKey := fmt.Sprintf("exercises:user:%s", userID.String())
+
+	responseData, err := GetWithCache(r.Context(), h.Rdb, cacheKey, 10*time.Minute, func() (interface{}, error) {
+		return h.Repo.GetAllExercises(userID)
+	})
 	if err != nil {
-		log.Println("GetAllExercises error:", err)
 		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to fetch exercises"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, Response{
-		Status: "success",
-		Data:   exercises,
-	})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseData)
 }
 
 func (h *ExerciseHandler) UpdateExercise(w http.ResponseWriter, r *http.Request) {
@@ -166,10 +193,12 @@ func (h *ExerciseHandler) UpdateExercise(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, Response{
-		Status: "success",
-		Data:   exercise,
-	})
+	listKey := fmt.Sprintf("exercises:user:%s", userID)
+	detailKey := fmt.Sprintf("exercises:user:%s:id:%s", userID, id)
+
+	h.Rdb.Del(context.Background(), listKey, detailKey)
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *ExerciseHandler) DeleteExercise(w http.ResponseWriter, r *http.Request) {
@@ -190,10 +219,12 @@ func (h *ExerciseHandler) DeleteExercise(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, Response{
-		Status:  "success",
-		Message: "Exercise deleted",
-	})
+	listKey := fmt.Sprintf("exercises:user:%s", userID)
+	detailKey := fmt.Sprintf("exercises:user:%s:id:%s", userID, id)
+
+	h.Rdb.Del(context.Background(), listKey, detailKey)
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *ExerciseHandler) GetExercisesByMuscleGroup(w http.ResponseWriter, r *http.Request) {
@@ -209,15 +240,20 @@ func (h *ExerciseHandler) GetExercisesByMuscleGroup(w http.ResponseWriter, r *ht
 		return
 	}
 
-	exercises, err := h.Repo.GetExercisesByMuscleGroup(userID, muscleGroups)
+	muscleStr := strings.Join(muscleGroups, ",")
+
+	cacheKey := fmt.Sprintf("exercises:user:%s:muscle_groups:%s", userID, muscleStr)
+
+	responseData, err := GetWithCache(r.Context(), h.Rdb, cacheKey, 10*time.Minute, func() (interface{}, error) {
+		return h.Repo.GetExercisesByMuscleGroup(userID, muscleGroups)
+	})
 	if err != nil {
 		log.Println("GetExercisesByMuscleGroup error:", err)
 		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Database error"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, Response{
-		Status: "success",
-		Data:   exercises,
-	})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseData)
 }

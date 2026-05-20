@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,19 +12,22 @@ import (
 	"gigafit/service"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 type ChatHandler struct {
 	Repo            repository.ChatRepository
 	ProfileRepo     repository.ProfileRepository
 	GigaChatService service.GigaChatService
+	Rdb             *redis.Client
 }
 
-func NewChatHandler(repo repository.ChatRepository, profileRepo repository.ProfileRepository, aiService service.GigaChatService) *ChatHandler {
+func NewChatHandler(repo repository.ChatRepository, profileRepo repository.ProfileRepository, aiService service.GigaChatService, rdb *redis.Client) *ChatHandler {
 	return &ChatHandler{
 		Repo:            repo,
 		ProfileRepo:     profileRepo,
 		GigaChatService: aiService,
+		Rdb:             rdb,
 	}
 }
 
@@ -34,25 +38,21 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Сначала подтягиваем профиль для контекста
 	profile, err := h.ProfileRepo.GetProfileByID(userID)
-	logs, err := h.ProfileRepo.GetProgress(userID)
+	logs, _ := h.ProfileRepo.GetProgress(userID)
 
 	systemContent := "Ты персональный фитнес-тренер и нутрициолог GigaFit. Отвечай кратко, дружелюбно и по делу."
 
 	if err == nil && profile != nil {
-		// По умолчанию берем начальные параметры
 		currentWeight := profile.InitialWeight
 		currentHeight := profile.InitialHeight
 
-		// Если есть история замеров, берем самый последний (свежий)
 		if len(logs) > 0 {
-			lastLog := logs[len(logs)-1] // берем самый свежий замер
+			lastLog := logs[len(logs)-1]
 			currentWeight = lastLog.Weight
 			currentHeight = lastLog.Height
 		}
 
-		// Добавляем контекст только если вес больше 0 (чтобы не передавать ИИ нули)
 		if currentWeight > 0 {
 			systemContent += fmt.Sprintf(
 				" Контекст клиента: Имя - %s, Текущий вес - %.1f кг, Рост - %.1f см, Цель - %s.",
@@ -61,36 +61,40 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 2. Декодируем входящее сообщение
 	var input struct {
 		SessionID string `json:"session_id,omitempty"`
 		Message   string `json:"message"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Message: "Invalid JSON format"})
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil || input.Message == "" {
+		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Message: "Invalid JSON or empty message"})
 		return
 	}
 
-	// 3. Работа с SessionID
 	var sessionID uuid.UUID
 	if input.SessionID == "" {
 		sessionID = uuid.New()
 	} else {
-		sessionID, _ = uuid.Parse(input.SessionID)
+		var parseErr error
+		sessionID, parseErr = uuid.Parse(input.SessionID)
+		if parseErr != nil {
+			writeJSON(w, http.StatusBadRequest, Response{Status: "error", Message: "Invalid session_id format"})
+			return
+		}
 	}
 
-	// 4. Достаем историю
-	history, _ := h.Repo.GetSessionHistory(userID, sessionID)
+	history, err := h.Repo.GetSessionHistory(userID, sessionID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to load chat history"})
+		return
+	}
 
-	// 5. Собираем массив сообщений для ИИ
 	messages := []map[string]string{
 		{
 			"role":    "system",
-			"content": systemContent, // Тот самый прокачанный контекст
+			"content": systemContent,
 		},
 	}
 
-	// Добавляем историю из БД
 	for _, req := range history {
 		messages = append(messages, map[string]string{"role": "user", "content": req.Prompt})
 		if aiText, ok := req.Response.Data["text"].(string); ok {
@@ -98,17 +102,14 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Добавляем новое сообщение пользователя
 	messages = append(messages, map[string]string{"role": "user", "content": input.Message})
 
-	// 6. Отправляем в GigaChat
 	aiReply, err := h.GigaChatService.SendMessage(messages)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "AI failed"})
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "AI failed to respond"})
 		return
 	}
 
-	// 7. Сохраняем в лог и отвечаем
 	aiRequestLog := models.AIRequest{
 		UserID:    userID,
 		SessionID: sessionID,
@@ -117,6 +118,9 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: time.Now(),
 	}
 	_ = h.Repo.SaveInteraction(&aiRequestLog)
+
+	cacheKey := fmt.Sprintf("chat:history:user:%s:session:%s", userID.String(), sessionID.String())
+	h.Rdb.Del(context.Background(), cacheKey)
 
 	writeJSON(w, http.StatusOK, Response{
 		Status: "success",
@@ -134,18 +138,22 @@ func (h *ChatHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionIDStr := r.URL.Query().Get("session_id")
-	sessionID, err := uuid.Parse(sessionIDStr)
+	sessionID, err := uuid.Parse(r.URL.Query().Get("session_id"))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Message: "Valid session_id query parameter is required"})
 		return
 	}
 
-	history, err := h.Repo.GetSessionHistory(userID, sessionID)
+	cacheKey := fmt.Sprintf("chat:history:user:%s:session:%s", userID, sessionID)
+
+	responseData, err := GetWithCache(r.Context(), h.Rdb, cacheKey, 15*time.Minute, func() (interface{}, error) {
+		return h.Repo.GetSessionHistory(userID, sessionID)
+	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to get history"})
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to fetch exercises"})
 		return
 	}
-
-	writeJSON(w, http.StatusOK, Response{Status: "success", Data: history})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseData)
 }

@@ -19,10 +19,10 @@ type WorkoutHandler struct {
 	WorkoutRepo  repository.WorkoutRepository
 	ExersiceRepo repository.ExerciseRepository
 	AiService    service.GigaChatService
-	Rdb          redis.Client
+	Rdb          *redis.Client
 }
 
-func NewWorkoutHandler(workoutRepo repository.WorkoutRepository, exerciseRepo repository.ExerciseRepository, aiService service.GigaChatService, rdb redis.Client) *WorkoutHandler {
+func NewWorkoutHandler(workoutRepo repository.WorkoutRepository, exerciseRepo repository.ExerciseRepository, aiService service.GigaChatService, rdb *redis.Client) *WorkoutHandler {
 	return &WorkoutHandler{
 		WorkoutRepo:  workoutRepo,
 		ExersiceRepo: exerciseRepo,
@@ -228,7 +228,7 @@ func (h *WorkoutHandler) GetWorkoutByID(w http.ResponseWriter, r *http.Request) 
 
 	cacheKey := fmt.Sprintf("workouts:user:%s:id:%s", userID.String(), idStr)
 
-	responseData, err := GetWithCache(r.Context(), &h.Rdb, cacheKey, 10*time.Minute, func() (interface{}, error) {
+	responseData, err := GetWithCache(r.Context(), h.Rdb, cacheKey, 10*time.Minute, func() (interface{}, error) {
 		workout, dbErr := h.WorkoutRepo.GetWorkoutByID(id)
 		if dbErr != nil {
 			return nil, dbErr
@@ -256,7 +256,7 @@ func (h *WorkoutHandler) GetWorkoutByID(w http.ResponseWriter, r *http.Request) 
 func (h *WorkoutHandler) GetSystemWorkouts(w http.ResponseWriter, r *http.Request) {
 	cacheKey := "workouts:system:all"
 
-	responseData, err := GetWithCache(r.Context(), &h.Rdb, cacheKey, 24*time.Hour, func() (interface{}, error) {
+	responseData, err := GetWithCache(r.Context(), h.Rdb, cacheKey, 24*time.Hour, func() (interface{}, error) {
 		return h.WorkoutRepo.GetAllSystemWorkouts()
 	})
 	if err != nil {
@@ -278,7 +278,7 @@ func (h *WorkoutHandler) GetAllWorkouts(w http.ResponseWriter, r *http.Request) 
 
 	cacheKey := fmt.Sprintf("workouts:user:%s", userID.String())
 
-	responseData, err := GetWithCache(r.Context(), &h.Rdb, cacheKey, 10*time.Minute, func() (interface{}, error) {
+	responseData, err := GetWithCache(r.Context(), h.Rdb, cacheKey, 10*time.Minute, func() (interface{}, error) {
 		return h.WorkoutRepo.GetAllWorkouts(userID)
 	})
 	if err != nil {
@@ -348,7 +348,7 @@ func (h *WorkoutHandler) UpdateWorkoutMeta(w http.ResponseWriter, r *http.Reques
 
 	h.Rdb.Del(context.Background(), listKey, detailKey)
 
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *WorkoutHandler) UpdateWorkoutExercises(w http.ResponseWriter, r *http.Request) {

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"gigafit/service"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 type PlanHandler struct {
@@ -18,6 +20,7 @@ type PlanHandler struct {
 	AiService    service.GigaChatService
 	ExerciseRepo repository.ExerciseRepository
 	WorkoutRepo  repository.WorkoutRepository
+	Rdb          *redis.Client 
 }
 
 func NewPlanHandler(
@@ -25,14 +28,18 @@ func NewPlanHandler(
 	aiService service.GigaChatService,
 	exerciseRepo repository.ExerciseRepository,
 	workoutRepo repository.WorkoutRepository,
+	rdb *redis.Client,
 ) *PlanHandler {
 	return &PlanHandler{
 		Repo:         repo,
 		AiService:    aiService,
 		ExerciseRepo: exerciseRepo,
 		WorkoutRepo:  workoutRepo,
+		Rdb:          rdb,
 	}
 }
+
+// ================= CREATE PLANS =================
 
 func (h *PlanHandler) CreateManualPlan(w http.ResponseWriter, r *http.Request) {
 	userID, ok := getUserID(r)
@@ -92,6 +99,9 @@ func (h *PlanHandler) CreateManualPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	listKey := fmt.Sprintf("plans:user:%s", userID.String())
+	h.Rdb.Del(context.Background(), listKey)
+
 	writeJSON(w, http.StatusCreated, Response{Status: "success", Data: plan})
 }
 
@@ -124,7 +134,7 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 		availableExercises[ex.ID] = ex.Name
 	}
 
-	// 2. ШАГ ОРКЕСТРАЦИИ: Просим ИИ разбить цель на дни
+	// 2. ШАГ ОРКЕСТРАЦИИ
 	blueprint, err := h.AiService.GeneratePlanOrchestrator(input.Goal, input.DaysPerWeek)
 	if err != nil {
 		fmt.Println("Ошибка Оркестратора:", err)
@@ -132,7 +142,6 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Подготавливаемся к сохранению
 	planID := uuid.New()
 	var planWorkouts []models.PlanWorkout
 
@@ -146,13 +155,12 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 		7: {1, 2, 3, 4, 5, 6, 7},
 	}
 
-	// Получаем расписание под наш запрос
 	daysSchedule := scheduleMap[input.DaysPerWeek]
 	if len(daysSchedule) == 0 {
 		daysSchedule = scheduleMap[3]
 	}
 
-	// 4. ЦИКЛ ГЕНЕРАЦИИ: Проходимся по каждому придуманному дню
+	// 4. ЦИКЛ ГЕНЕРАЦИИ ТРЕНИРОВОК
 	for i, dailyGoal := range blueprint.DailyGoals {
 		dayNumber := i + 1
 		if i < len(daysSchedule) {
@@ -160,18 +168,18 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var aiWorkout *service.AIWorkoutResponse
-		var err error
+		var genErr error
 
 		for attempt := 1; attempt <= 2; attempt++ {
-			aiWorkout, err = h.AiService.GenerateWorkout(fmt.Sprintf("Цель: %s. Фокус: %s", input.Goal, dailyGoal), availableExercises)
-			if err == nil {
+			aiWorkout, genErr = h.AiService.GenerateWorkout(fmt.Sprintf("Цель: %s. Фокус: %s", input.Goal, dailyGoal), availableExercises)
+			if genErr == nil {
 				break
 			}
-			fmt.Printf("Попытка %d для дня %d провалилась: %v. Пробуем еще раз...\n", attempt, dayNumber, err)
+			fmt.Printf("Попытка %d для дня %d провалилась: %v. Пробуем еще раз...\n", attempt, dayNumber, genErr)
 			time.Sleep(1 * time.Second)
 		}
 
-		if err != nil {
+		if genErr != nil {
 			fmt.Printf("Критическая ошибка генерации дня %d, пропускаем...\n", dayNumber)
 			continue
 		}
@@ -179,7 +187,6 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 		workoutID := uuid.New()
 		var workoutExercises []models.WorkoutExercise
 
-		// 4.2. Собираем упражнения
 		for j, ex := range aiWorkout.Exercises {
 			workoutExercises = append(workoutExercises, models.WorkoutExercise{
 				ID:         uuid.New(),
@@ -191,7 +198,6 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 
-		// 4.3. Формируем модель тренировки
 		newWorkout := models.Workout{
 			ID:               workoutID,
 			UserID:           userID,
@@ -203,12 +209,10 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 			Exercises:        workoutExercises,
 		}
 
-		// 4.4. Сохраняем тренировку
-		if err := h.WorkoutRepo.CreateWorkout(&newWorkout); err != nil {
+		if dbErr := h.WorkoutRepo.CreateWorkout(&newWorkout); dbErr != nil {
 			continue
 		}
 
-		// 4.5. Привязываем к плану
 		for weekNum := 1; weekNum <= input.DurationWeeks; weekNum++ {
 			planWorkouts = append(planWorkouts, models.PlanWorkout{
 				ID:         uuid.New(),
@@ -225,7 +229,6 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 5. Формируем и сохраняем финальный План
 	newPlan := models.TrainingPlan{
 		ID:            planID,
 		UserID:        userID,
@@ -242,7 +245,11 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 6. Достаем полный план из базы со всеми Preload-вложениями
+
+	plansListKey := fmt.Sprintf("plans:user:%s", userID.String())
+	workoutsListKey := fmt.Sprintf("workouts:user:%s", userID.String())
+	h.Rdb.Del(context.Background(), plansListKey, workoutsListKey)
+
 	fullPlan, err := h.Repo.GetTrainingPlanByID(planID, userID)
 	if err != nil {
 		writeJSON(w, http.StatusCreated, Response{Status: "success", Data: newPlan})
@@ -252,6 +259,8 @@ func (h *PlanHandler) CreateAIPlan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, Response{Status: "success", Data: fullPlan})
 }
 
+// ================= GET PLANS =================
+
 func (h *PlanHandler) GetAllPlans(w http.ResponseWriter, r *http.Request) {
 	userID, ok := getUserID(r)
 	if !ok {
@@ -259,23 +268,36 @@ func (h *PlanHandler) GetAllPlans(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	plans, err := h.Repo.GetAllTrainingPlans(userID)
+	cacheKey := fmt.Sprintf("plans:user:%s", userID.String())
+
+	responseData, err := GetWithCache(r.Context(), h.Rdb, cacheKey, 10*time.Minute, func() (interface{}, error) {
+		return h.Repo.GetAllTrainingPlans(userID)
+	})
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to get plans"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, Response{Status: "success", Data: plans})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseData)
 }
 
 func (h *PlanHandler) GetAllSystemPlans(w http.ResponseWriter, r *http.Request) {
-	plans, err := h.Repo.GetAllSystemPlans()
+	cacheKey := "plans:system:all"
+
+	// Системные планы кэшируются на 24 часа для всех
+	responseData, err := GetWithCache(r.Context(), h.Rdb, cacheKey, 24*time.Hour, func() (interface{}, error) {
+		return h.Repo.GetAllSystemPlans()
+	})
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to get plans"})
+		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to get system plans"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, Response{Status: "success", Data: plans})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseData)
 }
 
 func (h *PlanHandler) GetPlanByID(w http.ResponseWriter, r *http.Request) {
@@ -291,14 +313,22 @@ func (h *PlanHandler) GetPlanByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	plan, err := h.Repo.GetTrainingPlanByID(planID, userID)
+	cacheKey := fmt.Sprintf("plans:user:%s:id:%s", userID.String(), planID.String())
+
+	responseData, err := GetWithCache(r.Context(), h.Rdb, cacheKey, 10*time.Minute, func() (interface{}, error) {
+		return h.Repo.GetTrainingPlanByID(planID, userID)
+	})
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, Response{Status: "error", Message: "Plan not found or access denied"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, Response{Status: "success", Data: plan})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseData)
 }
+
+// ================= UPDATE & DELETE =================
 
 func (h *PlanHandler) UpdatePlan(w http.ResponseWriter, r *http.Request) {
 	userID, ok := getUserID(r)
@@ -313,7 +343,6 @@ func (h *PlanHandler) UpdatePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Декодируем прямо в map, чтобы обновить только переданные поля
 	var updates map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
 		writeJSON(w, http.StatusBadRequest, Response{Status: "error", Message: "Invalid JSON format"})
@@ -333,6 +362,10 @@ func (h *PlanHandler) UpdatePlan(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, Response{Status: "error", Message: "Failed to update plan"})
 		return
 	}
+
+	listKey := fmt.Sprintf("plans:user:%s", userID.String())
+	detailKey := fmt.Sprintf("plans:user:%s:id:%s", userID.String(), planID.String())
+	h.Rdb.Del(context.Background(), listKey, detailKey)
 
 	writeJSON(w, http.StatusOK, Response{Status: "success", Message: "Plan updated successfully"})
 }
@@ -363,6 +396,10 @@ func (h *PlanHandler) DeletePlan(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	listKey := fmt.Sprintf("plans:user:%s", userID.String())
+	detailKey := fmt.Sprintf("plans:user:%s:id:%s", userID.String(), planID.String())
+	h.Rdb.Del(context.Background(), listKey, detailKey)
 
 	writeJSON(w, http.StatusOK, Response{Status: "success", Message: "Plan deleted successfully"})
 }
