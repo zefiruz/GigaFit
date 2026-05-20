@@ -90,35 +90,56 @@ func (s *gigaChatService) GenerateBiometricAdvice(logs []models.MeasurementLog, 
 		goal = "Поддержание формы"
 	}
 
-	// 1. ОПТИМИЗАЦИЯ: Сжимаем историю в короткий текст с помощью Builder
+	limit := 14 
+	startIndex := 0
+	if len(logs) > limit {
+		startIndex = len(logs) - limit
+	}
+	recentLogs := logs[startIndex:]
+
 	var historyBuilder strings.Builder
-	for _, log := range logs {
-		// Формат: "02.05.2026: 85.5 кг"
+	var lastHeight float64
+
+	for _, log := range recentLogs {
 		dateStr := log.CreatedAt.Format("02.01.2006")
 		historyBuilder.WriteString(fmt.Sprintf("%s: %.1f кг\n", dateStr, log.Weight))
+		
+		// Запоминаем последний известный рост
+		if log.Height > 0 {
+			lastHeight = log.Height
+		}
 	}
 
-	// 2. Умный промпт, который заставляет ИИ анализировать тренд
-	systemPrompt := "Ты элитный фитнес-тренер. Я дам тебе историю изменения моего веса и мою цель. " +
-		"Проанализируй тренд. Если я молодец — похвали. Если вес стоит на месте (плато) — дай короткий жесткий совет по питанию. " +
-		"ОТВЕЧАЙ КРАТКО: максимум 3 предложения. Без воды."
+	systemPrompt := "Ты элитный фитнес-тренер. Я дам тебе историю изменения моего веса"
+	if lastHeight > 0 {
+		systemPrompt += fmt.Sprintf(" (мой рост: %.1f см)", lastHeight)
+	}
+	systemPrompt += " и мою цель. Проанализируй тренд. Если я молодец — похвали. Если вес стоит на месте (плато) — дай короткий жесткий совет по питанию. ОТВЕЧАЙ КРАТКО: максимум 3 предложения. Без воды."
 
-	userPrompt := fmt.Sprintf("Моя цель: %s.\nМоя история взвешиваний:\n%s\nКакой дашь совет?",
+	userPrompt := fmt.Sprintf("Моя цель: %s.\nМоя история взвешиваний (последние данные):\n%s\nКакой дашь совет?",
 		goal,
 		strings.TrimSpace(historyBuilder.String()),
 	)
 
 	payload := map[string]interface{}{
 		"model":       "GigaChat",
-		"temperature": 0.7, // Даем ИИ креативность для разнообразия советов
+		"temperature": 0.7, 
 		"messages": []map[string]string{
 			{"role": "system", "content": systemPrompt},
 			{"role": "user", "content": userPrompt},
 		},
 	}
 
-	body, _ := json.Marshal(payload)
-	req, _ := http.NewRequest("POST", "https://gigachat.devices.sberbank.ru/api/v1/chat/completions", bytes.NewBuffer(body))
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("ошибка формирования JSON: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", "https://gigachat.devices.sberbank.ru/api/v1/chat/completions", bytes.NewBuffer(body))
+	if err != nil {
+		return "", fmt.Errorf("ошибка создания HTTP-запроса: %w", err)
+	}
+	
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "Bearer "+token)
 
